@@ -163,7 +163,7 @@ async def build_dev_container():
     dh_pass = dag.set_secret("dh-secret", os.environ.get("DOCKERHUB_PASSWORD", ""))
     ali_pass = dag.set_secret("ali-secret", os.environ.get("ALIYUN_PASSWORD", ""))
 
-    ros_distros = ["melodic", "noetic", "humble", "jazzy"]
+    ros_distros = ["noetic", "humble", "jazzy"]
     platforms = [dagger.Platform("linux/amd64"), dagger.Platform("linux/arm64")]
 
     build_date = datetime.now(ZoneInfo("Asia/Shanghai")).strftime("%Y%m%d")
