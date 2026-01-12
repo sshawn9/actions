@@ -1,0 +1,22 @@
+name: build-ros-images
+
+on:
+  workflow_dispatch: 
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Run pipeline with Dagger Cloud
+        uses: dagger/dagger-for-github@v8.1.0
+        with:
+          verb: run
+          args: python main.py
+          cloud-token: ${{ secrets.DAGGER_CLOUD_TOKEN }}
+          version: latest
+        env:
+          DAGGER_CLOUD_TOKEN: ${{ secrets.DAGGER_CLOUD_TOKEN }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          ALIYUN_PASSWORD: ${{ secrets.ALIYUN_PASSWORD }}
