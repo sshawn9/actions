@@ -29,6 +29,9 @@ def apt_install(
 
         apt-get update -o Acquire::Retries=3
 
+        install -d -m 0755 /var/cache/apt/archives/partial
+        chmod -R u+rwX,go+rX /var/cache/apt/archives
+
         pkgs=({pkg_str})
         to_install=()
         skipped=()
@@ -129,7 +132,7 @@ def install_pkgs_for(ros_distro: str, arch: str):
         return apt_install(
             container,
             all_pkgs,
-            apt_cache_name=f"apt-archives-{arch}",
+            apt_cache_name=f"apt-archives-{ros_distro}-{arch}",
         )
 
     return _fn
