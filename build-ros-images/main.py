@@ -178,7 +178,7 @@ async def build_dev_container():
     build_date = os.environ.get("BUILD_DATE") or build_date
     created = datetime.now(ZoneInfo("Asia/Shanghai")).isoformat(timespec="seconds")
 
-    publish_conc = int(os.environ.get("PUBLISH_CONCURRENCY", "6"))
+    publish_conc = int(os.environ.get("PUBLISH_CONCURRENCY", "1"))
     sem = asyncio.Semaphore(publish_conc)
 
     manifest_only = os.environ.get("MANIFEST_ONLY") == "1"
