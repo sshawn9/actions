@@ -37,13 +37,13 @@ def apt_install(
         to_install=()
         skipped=()
 
-        for p in "${{pkgs[@]}}"; do
+        for p in "${pkgs[@]}"; do
           pol="$(apt-cache policy "$p" 2>/dev/null || true)"
-          cand="$(awk -F': ' '/Candidate:/ {print $2; exit}' <<<"$pol" || true)"
+          cand="$(awk -F': ' '/Candidate:/ {{print $2; exit}}' <<<"$pol" || true)"
           if [[ -n "$cand" && "$cand" != "(none)" ]]; then
-              to_install+=("$p")
+            to_install+=("$p")
           else
-              skipped+=("$p")
+            skipped+=("$p")
           fi
         done
 
