@@ -27,6 +27,7 @@ def apt_install(
         set -euo pipefail
         export DEBIAN_FRONTEND=noninteractive
 
+        trap 'rc=$?; tail -n 200 /var/log/apt/term.log || true; tail -n 200 /var/log/dpkg.log || true; df -h || true; exit $rc' ERR
         apt-get update -o Acquire::Retries=3
 
         install -d -m 0755 /var/cache/apt/archives/partial
@@ -36,12 +37,13 @@ def apt_install(
         to_install=()
         skipped=()
 
-        for p in "${{pkgs[@]}}"; do
-          cand="$(apt-cache policy "$p" 2>/dev/null | awk -F': ' '/Candidate:/ {{print $2; exit}}' || true)"
+        for p in "${pkgs[@]}"; do
+          pol="$(apt-cache policy "$p" 2>/dev/null || true)"
+          cand="$(awk -F': ' '/Candidate:/ {print $2; exit}' <<<"$pol" || true)"
           if [[ -n "$cand" && "$cand" != "(none)" ]]; then
-            to_install+=("$p")
+              to_install+=("$p")
           else
-            skipped+=("$p")
+              skipped+=("$p")
           fi
         done
 
