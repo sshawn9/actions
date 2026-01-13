@@ -4,23 +4,81 @@ on:
   workflow_dispatch: 
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  prep:
+    runs-on: ubuntu-24.04
+    outputs:
+      build_date: ${{ steps.vars.outputs.build_date }}
     steps:
-      - uses: actions/checkout@v6
+      - id: vars
+        run: |
+          echo "build_date=$(TZ=Asia/Shanghai date +%Y%m%d)" >> "$GITHUB_OUTPUT"
+          echo "build_ts=$(TZ=Asia/Shanghai date +%Y%m%d-%H%M%S)" >> "$GITHUB_OUTPUT"
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
+  build_amd64:
+    needs: prep
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Run pipeline with Dagger Cloud
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Build and push amd64 only
         uses: dagger/dagger-for-github@v8.2.0
         with:
           verb: run
+          version: latest
           workdir: build-ros-images
           args: uv run --locked python main.py
           cloud-token: ${{ secrets.DAGGER_CLOUD_TOKEN }}
-          version: latest
         env:
-          DAGGER_CLOUD_TOKEN: ${{ secrets.DAGGER_CLOUD_TOKEN }}
+          BUILD_DATE: ${{ needs.prep.outputs.build_date }}
+          TARGET_PLATFORMS: linux/amd64
+          PUBLISH_MANIFEST: "0"
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          ALIYUN_PASSWORD: ${{ secrets.ALIYUN_PASSWORD }}
+
+  build_arm64:
+    needs: prep
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Build and push arm64 only
+        uses: dagger/dagger-for-github@v8.2.0
+        with:
+          verb: run
+          version: latest
+          workdir: build-ros-images
+          args: uv run --locked python main.py
+          cloud-token: ${{ secrets.DAGGER_CLOUD_TOKEN }}
+        env:
+          BUILD_DATE: ${{ needs.prep.outputs.build_date }}
+          TARGET_PLATFORMS: linux/arm64
+          PUBLISH_MANIFEST: "0"
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          ALIYUN_PASSWORD: ${{ secrets.ALIYUN_PASSWORD }}
+
+  publish_manifests:
+    needs: [ prep, build_amd64, build_arm64 ]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Publish multi-arch manifests
+        uses: dagger/dagger-for-github@v8.2.0
+        with:
+          verb: run
+          version: latest
+          workdir: build-ros-images
+          args: uv run --locked python main.py
+          cloud-token: ${{ secrets.DAGGER_CLOUD_TOKEN }}
+        env:
+          BUILD_DATE: ${{ needs.prep.outputs.build_date }}
+          TARGET_PLATFORMS: linux/amd64,linux/arm64
+          MANIFEST_ONLY: "1"
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
           ALIYUN_PASSWORD: ${{ secrets.ALIYUN_PASSWORD }}

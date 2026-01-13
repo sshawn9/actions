@@ -165,12 +165,18 @@ async def build_dev_container():
 
     ros_distros = ["noetic", "humble", "jazzy"]
     platforms = [dagger.Platform("linux/amd64"), dagger.Platform("linux/arm64")]
+    tp = os.environ.get("TARGET_PLATFORMS", "").strip()
+    if tp:
+        platforms = [dagger.Platform(x.strip()) for x in tp.split(",") if x.strip()]
 
     build_date = datetime.now(ZoneInfo("Asia/Shanghai")).strftime("%Y%m%d")
+    build_date = os.environ.get("BUILD_DATE") or build_date
     created = datetime.now(ZoneInfo("Asia/Shanghai")).isoformat(timespec="seconds")
 
     publish_conc = int(os.environ.get("PUBLISH_CONCURRENCY", "6"))
     sem = asyncio.Semaphore(publish_conc)
+
+    manifest_only = os.environ.get("MANIFEST_ONLY") == "1"
 
     cfg = dagger.Config(log_output=sys.stderr)
     async with dagger.connection(cfg):
@@ -180,6 +186,30 @@ async def build_dev_container():
                 image_name = f"{distro}-box"
                 dh_repo = f"{docker_addr}/{username}/{image_name}"
                 ali_repo = f"{ali_addr}/{username}/{image_name}"
+
+                if manifest_only:
+                    def variants_for(repo: str) -> list[dagger.Container]:
+                        vs = []
+                        for platform in platforms:
+                            arch = str(platform).split("/")[-1]
+                            vs.append(
+                                dag.container(platform=platform)
+                                .with_registry_auth(docker_addr, username, dh_pass)
+                                .with_registry_auth(ali_addr, username, ali_pass)
+                                .from_(f"{repo}:{arch}")
+                            )
+                        return vs
+
+                    for repo in (dh_repo, ali_repo):
+                        vs = variants_for(repo)
+                        main = vs[0]
+                        others = vs[1:] or None
+                        for tag in (build_date, "latest"):
+                            tg.create_task(publish_with_retry(
+                                main, f"{repo}:{tag}",
+                                platform_variants=others, sem=sem,
+                            ))
+                    continue
 
                 variants: list[dagger.Container] = []
                 for platform in platforms:
@@ -203,6 +233,8 @@ async def build_dev_container():
 
                 main = variants[0]
                 platform_variants = variants[1:] or None
+                if platform_variants is None:
+                    continue
 
                 for repo in (dh_repo, ali_repo):
                     for tag in (f"{build_date}", "latest"):
