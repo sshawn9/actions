@@ -27,6 +27,27 @@ def finish_single_image(
     )
     return ctr
 
+def build_single_image(
+    env: BuildEnv,
+    distro: str,
+    base_image: str,
+    base_image_tag: str, # if empty, use platform arch
+    image_name: str,
+    platform: dagger.Platform,
+    tg: asyncio.TaskGroup,
+    middle_fns: list[Callable],
+) -> dagger.Container:
+    ctr = (
+        dag.container(platform=platform)
+        .from_(f"{base_image}:{base_image_tag or arch_of(platform)}")
+        .with_label("org.opencontainers.image.created", env.created)
+        .with_label("org.opencontainers.image.version", env.build_date)
+    )
+    for fn in middle_fns:
+        ctr = ctr.with_(fn(distro, platform))
+    ctr = finish_single_image(env, ctr, image_name, platform, tg)
+    return ctr
+
 def build_single_distro(
     env: BuildEnv,
     distro: str,
@@ -38,16 +59,11 @@ def build_single_distro(
 ) -> list[dagger.Container]:
     variants: list[dagger.Container] = []
     for platform in env.platforms:
-        ctr = (
-            dag.container(platform=platform)
-            .from_(f"{base_image}:{base_image_tag or arch_of(platform)}")
-            .with_label("org.opencontainers.image.created", env.created)
-            .with_label("org.opencontainers.image.version", env.build_date)
+        variants.append(
+            build_single_image(
+                env, distro, base_image, base_image_tag, image_name, platform, tg, middle_fns,
+            )
         )
-        for fn in middle_fns:
-            ctr = ctr.with_(fn(distro, platform))
-        ctr = finish_single_image(env, ctr, image_name, platform, tg)
-        variants.append(ctr)
     if len(variants) < 2:
         return variants
     main = variants[0]
