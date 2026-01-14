@@ -35,7 +35,7 @@ on:
           - '0'
       manifest_tag:
         description: 'Customize Manifest Tag'
-        required: true
+        required: false
         default: ''
         type: string
 
