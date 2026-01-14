@@ -1,0 +1,117 @@
+name: build-ros-images-single
+
+on:
+  workflow_dispatch:
+    inputs:
+      distro:
+        description: 'ROS Distro'
+        required: true
+        default: 'humble'
+        type: choice
+        options:
+          - noetic
+          - humble
+          - jazzy
+      arch:
+        description: 'Architecture'
+        required: true
+        default: 'amd64'
+        type: choice
+        options:
+          - amd64
+          - arm64
+      rebuild_base:
+        description: 'Rebuild Base Image(1 for enable)'
+        required: true
+        default: '1'
+        type: choice
+        options:
+          - '1'
+          - '0'
+      rebuild_desktop:
+        description: 'Rebuild Desktop Image(1 for enable)'
+        required: true
+        default: '1'
+        type: choice
+        options:
+          - '1'
+          - '0'
+      rebuild_box:
+        description: 'Rebuild Box Image(1 for enable)'
+        required: true
+        default: '1'
+        type: choice
+        options:
+          - '1'
+          - '0'
+      manifest_tag:
+        description: 'Customize Manifest Tag'
+        required: true
+        default: ''
+        type: string
+
+  workflow_call:
+    inputs:
+      distro:
+        description: 'ROS Distro (noetic, humble, jazzy)'
+        required: true
+        type: string
+      arch:
+        description: 'Architecture (amd64, arm64)'
+        required: true
+        type: string
+      rebuild_base:
+        description: 'Rebuild Base Image(1 for enable)'
+        required: true
+        type: string
+      rebuild_desktop:
+        description: 'Rebuild Desktop Image(1 for enable)'
+        required: true
+        type: string
+      rebuild_box:
+        description: 'Rebuild Box Image(1 for enable)'
+        required: true
+        type: string
+      manifest_tag:
+        description: 'Customize Manifest Tag'
+        required: true
+        default: ''
+        type: string
+
+jobs:
+  build-single-ros-image:
+    name: "Build ROS Image with Distro: ${{ inputs.distro }} and Arch: ${{ inputs.arch }}"
+    runs-on: ${{ inputs.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    
+    steps:
+      - run: |
+          echo "Start Build ROS Image with Distro: ${{ inputs.distro }} and Arch: ${{ inputs.arch }}"
+
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Build via Dagger
+        uses: dagger/dagger-for-github@v8.2.0
+        with:
+          verb: run
+          version: latest
+          workdir: build-ros-images
+          args: uv run --locked python main.py
+          cloud-token: ${{ secrets.DAGGER_CLOUD_TOKEN }}
+        env:
+          TARGET_PLATFORMS: linux/${{ inputs.arch }}
+          TARGET_DISTROS: ${{ inputs.distro }}
+
+          MANIFEST_ONLY: '0'
+          MANIFEST_TAG: ${{ inputs.manifest_tag }}
+
+          REBUILD_BASE: ${{ inputs.rebuild_base }}
+          REBUILD_DESKTOP: ${{ inputs.rebuild_desktop }}
+          REBUILD_BOX: ${{ inputs.rebuild_box }}
+
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          ALIYUN_PASSWORD: ${{ secrets.ALIYUN_PASSWORD }}
+
+      - run: |
+          echo "End Build ROS Image with Distro: ${{ inputs.distro }} and Arch: ${{ inputs.arch }}"
