@@ -1,3 +1,5 @@
+import dagger
+
 from single_distro import *
 from install_pkgs import *
 
@@ -30,8 +32,8 @@ async def build_base_image(
     distro: str,
     tg: asyncio.TaskGroup,
 ):
-    base_image = f"ros:{distro}"
-    base_image_tag = "latest"
+    base_image = "ros"
+    base_image_tag = f"{distro}"
     image_name = f"{distro}"
     middle_fns = [
         install_base_for
@@ -80,7 +82,7 @@ async def build_box_image(
     build_single_distro(env, distro, base_image, "", image_name, tg, middle_fns)
 
 async def manifest_my_image_only(env: BuildEnv, image_name: str, tg: asyncio.TaskGroup):
-    dh_variants = []
+    dh_variants: list[dagger.Container] = []
     for platform in env.platforms:
         await fetch_image(
             env.dh_repo(image_name, arch_of(platform)),
@@ -95,8 +97,9 @@ async def manifest_my_image_only(env: BuildEnv, image_name: str, tg: asyncio.Tas
     for tag in (env.manifest_tag, "latest"):
         create_push_task(
             tg,
-            main_variant.with_(env.dh_auth),
+            main_variant,
             env.dh_repo(image_name, tag),
+            env.dh_auth,
             platform_variants=others,
             sem=env.sem,
         )
@@ -116,8 +119,9 @@ async def manifest_my_image_only(env: BuildEnv, image_name: str, tg: asyncio.Tas
     for tag in (env.manifest_tag, "latest"):
         create_push_task(
             tg,
-            main_variant.with_(env.ali_auth),
+            main_variant,
             env.ali_repo(image_name, tag),
+            env.ali_auth,
             platform_variants=others,
             sem=env.sem,
         )
@@ -139,39 +143,38 @@ def create_env_from_os() -> BuildEnv:
     )
     return env
 
+async def build_workflow(env: BuildEnv):
+    for distro in env.distros:
+        if env.rebuild_base:
+            async with asyncio.TaskGroup() as tg:
+                await build_base_image(env, distro, tg)
+        if env.rebuild_desktop:
+            async with asyncio.TaskGroup() as tg:
+                await build_desktop_image(env, distro, tg)
+        if env.rebuild_box:
+            async with asyncio.TaskGroup() as tg:
+                await build_box_image(env, distro, tg)
+
+async def manifest_workflow(env: BuildEnv):
+    for distro in env.distros:
+        if env.rebuild_base:
+            async with asyncio.TaskGroup() as tg:
+                await manifest_my_image_only(env, distro, tg)
+        if env.rebuild_desktop:
+            async with asyncio.TaskGroup() as tg:
+                await manifest_my_image_only(env, f"{distro}-desktop", tg)
+        if env.rebuild_box:
+            async with asyncio.TaskGroup() as tg:
+                await manifest_my_image_only(env, f"{distro}-box", tg)
+
 async def main():
-    env = create_env_from_os()
-
-    async def build_workflow():
-        for distro in env.distros:
-            if os.environ.get("REBUILD_BASE") == "1":
-                async with asyncio.TaskGroup() as tg:
-                    await build_base_image(env, distro, tg)
-            if os.environ.get("REBUILD_DESKTOP") == "1":
-                async with asyncio.TaskGroup() as tg:
-                    await build_desktop_image(env, distro, tg)
-            if os.environ.get("REBUILD_BOX") == "1":
-                async with asyncio.TaskGroup() as tg:
-                    await build_box_image(env, distro, tg)
-
-    async def manifest_workflow():
-        for distro in env.distros:
-            if os.environ.get("REBUILD_BASE") == "1":
-                async with asyncio.TaskGroup() as tg:
-                    await manifest_my_image_only(env, distro, tg)
-            if os.environ.get("REBUILD_DESKTOP") == "1":
-                async with asyncio.TaskGroup() as tg:
-                    await manifest_my_image_only(env, f"{distro}-desktop", tg)
-            if os.environ.get("REBUILD_BOX") == "1":
-                async with asyncio.TaskGroup() as tg:
-                    await manifest_my_image_only(env, f"{distro}-box", tg)
-
     cfg = dagger.Config(log_output=sys.stderr)
     async with dagger.connection(cfg):
+        env = create_env_from_os()
         if env.manifest_only:
-            await manifest_workflow()
+            await manifest_workflow(env)
             return
-        await build_workflow()
+        await build_workflow(env)
 
 
 if __name__ == "__main__":

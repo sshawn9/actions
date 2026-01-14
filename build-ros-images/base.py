@@ -24,11 +24,16 @@ class BuildEnv:
     docker_addr: str = "docker.io"
     ali_addr: str = "registry.cn-beijing.aliyuncs.com"
     username: str = "sshawn"
-    dh_pass: dagger.Secret = dag.set_secret("dh-secret", os.environ.get("DOCKERHUB_PASSWORD", ""))
-    ali_pass: dagger.Secret = dag.set_secret("ali-secret", os.environ.get("ALIYUN_PASSWORD", ""))
-    build_date: str = datetime.now(ZoneInfo("Asia/Shanghai")).strftime("%Y%m%d")
-    created: str = datetime.now(ZoneInfo("Asia/Shanghai")).isoformat(timespec="seconds")
+    dh_pass: dagger.Secret = field(default_factory=lambda: dag.set_secret("dh-secret", os.environ.get("DOCKERHUB_PASSWORD", "")))
+    ali_pass: dagger.Secret = field(default_factory=lambda: dag.set_secret("ali-secret", os.environ.get("ALIYUN_PASSWORD", "")))
+
+    build_date: str = field(default_factory=lambda: datetime.now(ZoneInfo("Asia/Shanghai")).strftime("%Y%m%d"))
+    created: str = field(default_factory=lambda: datetime.now(ZoneInfo("Asia/Shanghai")).isoformat(timespec="seconds"))
     sem: asyncio.Semaphore = field(default_factory=lambda: asyncio.Semaphore(1))
+
+    rebuild_base: bool = field(default_factory=lambda: os.environ.get("REBUILD_BASE", "1") == "1")
+    rebuild_desktop: bool = field(default_factory=lambda: os.environ.get("REBUILD_DESKTOP", "1") == "1")
+    rebuild_box: bool = field(default_factory=lambda: os.environ.get("REBUILD_BOX", "1") == "1")
 
     @property
     def manifest_tag(self) -> str:

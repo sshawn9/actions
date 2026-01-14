@@ -13,14 +13,16 @@ def finish_single_image(
     arch = arch_of(platform)
     create_push_task(
         tg,
-        ctr.with_(env.dh_auth),
+        ctr,
         env.dh_repo(image_name, arch),
+        env.dh_auth,
         platform_variants=None, sem=env.sem,
     )
     create_push_task(
         tg,
-        ctr.with_(env.ali_auth),
+        ctr,
         env.ali_repo(image_name, arch),
+        env.ali_auth,
         platform_variants=None, sem=env.sem,
     )
     return ctr
@@ -43,7 +45,7 @@ def build_single_distro(
             .with_label("org.opencontainers.image.version", env.build_date)
         )
         for fn in middle_fns:
-            ctr.with_(fn(distro, platform))
+            ctr = ctr.with_(fn(distro, platform))
         ctr = finish_single_image(env, ctr, image_name, platform, tg)
         variants.append(ctr)
     if len(variants) < 2:
@@ -53,15 +55,17 @@ def build_single_distro(
     for tag in (env.manifest_tag, "latest"):
         create_push_task(
             tg,
-            main.with_(env.dh_auth),
+            main,
             env.dh_repo(image_name, tag),
+            env.dh_auth,
             platform_variants=others,
             sem=env.sem,
         )
         create_push_task(
             tg,
-            main.with_(env.ali_auth),
+            main,
             env.ali_repo(image_name, tag),
+            env.ali_auth,
             platform_variants=others,
             sem=env.sem,
         )

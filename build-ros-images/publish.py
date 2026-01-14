@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 from base import *
 
 async def publish_with_retry(
@@ -24,10 +26,12 @@ def create_push_task(
     tg: asyncio.TaskGroup,
     ctr: dagger.Container,
     ref: str,
+    auth: Callable[[dagger.Container], dagger.Container],
     *,
     platform_variants: list[dagger.Container] | None,
     sem: asyncio.Semaphore,
 ) -> None:
+    vs = [ v.with_(auth) for v in (platform_variants or []) ] or None
     tg.create_task(publish_with_retry(
-        ctr, ref, platform_variants=platform_variants, sem=sem,
+        ctr.with_(auth), ref, platform_variants=vs, sem=sem,
     ))
