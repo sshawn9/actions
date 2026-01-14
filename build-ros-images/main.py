@@ -138,8 +138,6 @@ def create_env_from_os() -> BuildEnv:
     env = BuildEnv(
         distros=distros,
         platforms=platforms,
-        manifest_only=os.environ.get("MANIFEST_ONLY") == "1",
-        custom_manifest_tag=os.environ.get("MANIFEST_TAG", "")
     )
     return env
 

@@ -18,8 +18,8 @@ def arch_of(platform: dagger.Platform) -> str:
 class BuildEnv:
     distros: list[str]
     platforms: list[dagger.Platform]
-    manifest_only: bool
-    custom_manifest_tag: str
+    manifest_only: bool = field(default_factory=lambda: os.environ.get("MANIFEST_ONLY", "0") == "1")
+    custom_manifest_tag: str = field(default_factory=lambda: os.environ.get("MANIFEST_TAG", ""))
 
     docker_addr: str = "docker.io"
     ali_addr: str = "registry.cn-beijing.aliyuncs.com"
