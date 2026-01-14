@@ -8,31 +8,25 @@ on:
       build_jazzy:  { type: boolean, default: true }
       arch_amd64:   { type: boolean, default: true }
       arch_arm64:   { type: boolean, default: true }
-      max_parallel_jobs: { type: number,  default: 2 }
+      max_parallel_jobs: { type: number, default: 2 }
       rebuild_base:
         description: 'Rebuild Base Image(1 for enable)'
         required: true
         default: '1'
         type: choice
-        options:
-          - '1'
-          - '0'
+        options: ['1','0']
       rebuild_desktop:
         description: 'Rebuild Desktop Image(1 for enable)'
         required: true
         default: '1'
         type: choice
-        options:
-          - '1'
-          - '0'
+        options: ['1','0']
       rebuild_box:
         description: 'Rebuild Box Image(1 for enable)'
         required: true
         default: '1'
         type: choice
-        options:
-          - '1'
-          - '0'
+        options: ['1','0']
       manifest_tag:
         description: 'Customize Manifest Tag'
         required: false
@@ -40,31 +34,53 @@ on:
         type: string
 
 jobs:
+  gen-matrix:
+    runs-on: ubuntu-24.04
+    outputs:
+      build_matrix: ${{ steps.out.outputs.build_matrix }}
+      build_count: ${{ steps.out.outputs.build_count }}
+      manifest_matrix: ${{ steps.out.outputs.manifest_matrix }}
+      manifest_count: ${{ steps.out.outputs.manifest_count }}
+    steps:
+      - id: out
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          distros=()
+          [[ "${{ inputs.build_noetic }}" == "true" ]] && distros+=(noetic)
+          [[ "${{ inputs.build_humble }}" == "true" ]] && distros+=(humble)
+          [[ "${{ inputs.build_jazzy  }}" == "true" ]] && distros+=(jazzy)
+
+          arches=()
+          [[ "${{ inputs.arch_amd64 }}" == "true" ]] && arches+=(amd64)
+          [[ "${{ inputs.arch_arm64 }}" == "true" ]] && arches+=(arm64)
+
+          build='[]'
+          for d in "${distros[@]}"; do
+            for a in "${arches[@]}"; do
+              build="$(jq -c --arg d "$d" --arg a "$a" '. + [{"distro":$d,"arch":$a}]' <<<"$build")"
+            done
+          done
+          echo "build_count=$(jq 'length' <<<"$build")" >> "$GITHUB_OUTPUT"
+          echo "build_matrix={\"include\":$build}" >> "$GITHUB_OUTPUT"
+
+          manifest='[]'
+          if [[ "${{ inputs.arch_amd64 }}" == "true" && "${{ inputs.arch_arm64 }}" == "true" ]]; then
+            for d in "${distros[@]}"; do
+              manifest="$(jq -c --arg d "$d" '. + [{"distro":$d}]' <<<"$manifest")"
+            done
+          fi
+          echo "manifest_count=$(jq 'length' <<<"$manifest")" >> "$GITHUB_OUTPUT"
+          echo "manifest_matrix={\"include\":$manifest}" >> "$GITHUB_OUTPUT"
+
   build:
-    name: build ${{ matrix.distro }} ${{ matrix.arch }}
-    if: >-
-      ${{
-        (
-          (matrix.distro == 'noetic' && inputs.build_noetic) ||
-          (matrix.distro == 'humble' && inputs.build_humble) ||
-          (matrix.distro == 'jazzy'  && inputs.build_jazzy)
-        ) &&
-        (
-          (matrix.arch == 'amd64' && inputs.arch_amd64) ||
-          (matrix.arch == 'arm64' && inputs.arch_arm64)
-        )
-      }}
+    needs: gen-matrix
+    if: ${{ needs.gen-matrix.outputs.build_count != '0' }}
     strategy:
       fail-fast: false
       max-parallel: ${{ inputs.max_parallel_jobs }}
-      matrix:
-        include:
-          - { distro: noetic, arch: amd64, platform: linux/amd64, runner: ubuntu-24.04 }
-          - { distro: noetic, arch: arm64, platform: linux/arm64, runner: ubuntu-24.04-arm }
-          - { distro: humble, arch: amd64, platform: linux/amd64, runner: ubuntu-24.04 }
-          - { distro: humble, arch: arm64, platform: linux/arm64, runner: ubuntu-24.04-arm }
-          - { distro: jazzy,  arch: amd64, platform: linux/amd64, runner: ubuntu-24.04 }
-          - { distro: jazzy,  arch: arm64, platform: linux/arm64, runner: ubuntu-24.04-arm }
+      matrix: ${{ fromJson(needs.gen-matrix.outputs.build_matrix) }}
     uses: ./.github/workflows/build-ros-images-single.yml
     with:
       distro: ${{ matrix.distro }}
@@ -76,25 +92,12 @@ jobs:
     secrets: inherit
 
   manifest:
-    name: manifest ${{ matrix.distro }}
-    needs: [ build ]
-    if: >-
-      ${{
-        (
-          (matrix.distro == 'noetic' && inputs.build_noetic) ||
-          (matrix.distro == 'humble' && inputs.build_humble) ||
-          (matrix.distro == 'jazzy'  && inputs.build_jazzy)
-        ) && 
-        (inputs.arch_amd64 && inputs.arch_arm64)
-      }}
+    needs: [gen-matrix, build]
+    if: ${{ needs.gen-matrix.outputs.manifest_count != '0' }}
     strategy:
       fail-fast: false
       max-parallel: ${{ inputs.max_parallel_jobs }}
-      matrix:
-        include:
-          - { distro: noetic, arch: amd64, platform: linux/amd64, runner: ubuntu-24.04 }
-          - { distro: humble, arch: amd64, platform: linux/amd64, runner: ubuntu-24.04 }
-          - { distro: jazzy,  arch: amd64, platform: linux/amd64, runner: ubuntu-24.04 }
+      matrix: ${{ fromJson(needs.gen-matrix.outputs.manifest_matrix) }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
