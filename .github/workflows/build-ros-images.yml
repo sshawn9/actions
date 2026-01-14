@@ -79,7 +79,7 @@ jobs:
     if: ${{ needs.gen-matrix.outputs.build_count != '0' }}
     strategy:
       fail-fast: false
-      max-parallel: ${{ inputs.max_parallel_jobs }}
+      max-parallel: ${{ fromJSON(inputs.max_parallel_jobs) }}
       matrix: ${{ fromJson(needs.gen-matrix.outputs.build_matrix) }}
     uses: ./.github/workflows/build-ros-images-single.yml
     with:
