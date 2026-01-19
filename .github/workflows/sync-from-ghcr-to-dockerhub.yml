@@ -1,0 +1,31 @@
+name: Sync Image to DockerHub
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_name:
+        description: 'Image Name (user/repo)'
+        required: true
+        default: 'owner/image-name'
+      tag:
+        description: 'Tag (latest)'
+        required: true
+        default: 'latest'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync Image using Skopeo
+        run: |
+          SRC_IMAGE="docker://ghcr.io/${{ inputs.image_name }}:${{ inputs.tag }}"
+          IMAGE_BASENAME=$(echo "${{ inputs.image_name }}" | cut -d'/' -f2)
+          DEST_IMAGE="docker://docker.io/sshawn/${IMAGE_BASENAME}:${{ inputs.tag }}"
+          
+          echo "Sync: $SRC_IMAGE -> $DEST_IMAGE"
+          
+          skopeo copy --all \
+            --src-creds ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }} \
+            --dest-creds sshawn:${{ secrets.DOCKERHUB_PASSWORD }} \
+            $SRC_IMAGE \
+            $DEST_IMAGE
