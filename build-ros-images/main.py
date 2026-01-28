@@ -1,5 +1,6 @@
 from single_distro import *
 from install_pkgs import *
+from install_protobuf import *
 
 
 async def fetch_image_exists(
@@ -31,7 +32,8 @@ async def build_base_image(
     base_image_tag = f"{distro}"
     image_name = f"{distro}"
     middle_fns = [
-        install_base_for
+        install_base_for,
+        install_protobuf,
     ]
     for platform in env.platforms:
         if await fetch_image_exists(
