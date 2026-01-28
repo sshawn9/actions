@@ -136,7 +136,7 @@ def install_box_for(ros_distro: str, platform: dagger.Platform):
     systemd systemd-sysv libpam-systemd
     dbus dbus-user-session
     sudo ca-certificates less nano vim curl wget git git-lfs openssh-client
-    locales tzdata bash-completion
+    locales tzdata bash-completion language-pack-en
     xdg-utils xdg-user-dirs shared-mime-info desktop-file-utils
     fontconfig fonts-noto-core fonts-noto-cjk fonts-noto-color-emoji
     adwaita-icon-theme hicolor-icon-theme
@@ -149,6 +149,16 @@ def install_box_for(ros_distro: str, platform: dagger.Platform):
     libgtk-3-0
     wl-clipboard xclip xauth
     unzip
+    zsh
+    iproute2 iputils-ping traceroute mtr tcpdump
+    bind9-host
+    man-db manpages
+    lsof time tree zip pigz bc dialog
+    apt-utils
+    avahi-daemon libnss-mdns libnss-myhostname
+    libegl1-mesa libgl1-mesa-glx
+    libgtk2.0-0 libgtk2.0-bin
+    librsvg2-common libvte-2.91-common
     """.split()
 
     all_pkgs = box_pkgs
