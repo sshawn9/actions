@@ -12,3 +12,4 @@ def install_protobuf(
             .with_exec(["bash", "-lc", "chmod +x /tmp/install_protobuf.sh"])
             .with_exec(["bash", "-lc", "/tmp/install_protobuf.sh"])
         )
+    return _fn
