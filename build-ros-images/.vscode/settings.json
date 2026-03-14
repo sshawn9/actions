@@ -1,0 +1,16 @@
+{
+  "editor.fontSize": 20,
+  "editor.formatOnSave": true,
+  "editor.formatOnSaveMode": "modificationsIfAvailable",
+  "files.autoSave": "onFocusChange",
+  "terminal.integrated.fontSize": 18,
+  "search.exclude": {
+    "**/.direnv": true,
+    "**/.devenv": true
+  },
+  "files.watcherExclude": {
+    "**/.direnv/**": true,
+    "**/.devenv/**": true
+  },
+  "git.autofetch": true
+}

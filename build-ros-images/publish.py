@@ -1,6 +1,7 @@
+import asyncio
 from collections.abc import Callable
 
-from base import *
+import dagger
 
 async def publish_with_retry(
     ctr: dagger.Container,
