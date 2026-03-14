@@ -16,7 +16,7 @@ FROM ${BASE_IMAGE}:${BASE_TAG}
 
 ARG ROS_DISTRO=humble
 
-LABEL org.opencontainers.image.description="ROS ${ROS_DISTRO} box with full desktop environment"
+LABEL org.opencontainers.image.description="ROS ${ROS_DISTRO} for distrobox with full desktop environment"
 
 # ---------------------------------------------------------------------------
 # System / init / desktop environment / graphics / audio / networking
