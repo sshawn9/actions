@@ -1,0 +1,51 @@
+# syntax=docker/dockerfile:1
+# ============================================================================
+# Dockerfile.box — Full desktop environment with systemd, GUI, audio, graphics
+#
+# Build:
+#   docker buildx build \
+#     --build-arg ROS_DISTRO=humble \
+#     --build-arg BASE_IMAGE=sshawn/humble-desktop \
+#     --build-arg BASE_TAG=latest \
+#     -f dockerfiles/Dockerfile.box -t sshawn/humble-box:latest .
+# ============================================================================
+
+ARG BASE_IMAGE=sshawn/humble-desktop
+ARG BASE_TAG=latest
+FROM ${BASE_IMAGE}:${BASE_TAG}
+
+ARG ROS_DISTRO=humble
+
+LABEL org.opencontainers.image.description="ROS ${ROS_DISTRO} box with full desktop environment"
+
+# ---------------------------------------------------------------------------
+# System / init / desktop environment / graphics / audio / networking
+# ---------------------------------------------------------------------------
+RUN --mount=type=bind,source=inject-scripts/apt-install-safe.sh,target=/tmp/apt-install-safe.sh \
+    bash /tmp/apt-install-safe.sh \
+        systemd systemd-sysv libpam-systemd \
+        dbus dbus-user-session \
+        sudo ca-certificates less nano vim curl wget git git-lfs openssh-client \
+        locales tzdata bash-completion language-pack-en \
+        xdg-utils xdg-user-dirs shared-mime-info desktop-file-utils \
+        fontconfig fonts-noto-core fonts-noto-cjk fonts-noto-color-emoji \
+        adwaita-icon-theme hicolor-icon-theme \
+        libgl1-mesa-dri libglx-mesa0 libegl1 libgbm1 libdrm2 mesa-utils \
+        libvulkan1 mesa-vulkan-drivers vulkan-tools \
+        libpulse0 pulseaudio-utils pipewire-alsa pipewire-jack \
+        pipewire-audio-client-libraries alsa-utils \
+        libxkbcommon0 libxrandr2 libxss1 libxtst6 libnss3 libcups2 libasound2 \
+        libx11-6 libxext6 libxi6 libxrender1 libxcursor1 libxcomposite1 \
+        libxdamage1 libxfixes3 \
+        libwayland-client0 libwayland-cursor0 libwayland-egl1 \
+        libgtk-3-0 \
+        wl-clipboard xclip xauth \
+        unzip zsh \
+        iproute2 iputils-ping traceroute mtr tcpdump bind9-host \
+        man-db manpages \
+        lsof time tree zip pigz bc dialog \
+        apt-utils \
+        avahi-daemon libnss-mdns libnss-myhostname \
+        libegl1-mesa libgl1-mesa-glx \
+        libgtk2.0-0 libgtk2.0-bin \
+        librsvg2-common libvte-2.91-common

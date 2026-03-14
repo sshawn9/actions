@@ -1,0 +1,44 @@
+# syntax=docker/dockerfile:1
+# ============================================================================
+# Dockerfile.base — ROS base image with build tools, dev libs, and protobuf
+#
+# Build:
+#   docker buildx build \
+#     --build-arg ROS_DISTRO=humble \
+#     -f dockerfiles/Dockerfile.base -t sshawn/humble:latest .
+# ============================================================================
+
+ARG ROS_DISTRO=humble
+FROM ros:${ROS_DISTRO}
+
+# Re-declare after FROM so it's available in RUN
+ARG ROS_DISTRO
+
+LABEL org.opencontainers.image.description="ROS ${ROS_DISTRO} base with build tools and protobuf 3.21.5"
+
+# ---------------------------------------------------------------------------
+# Build tools + development libraries + ROS packages
+# ---------------------------------------------------------------------------
+RUN --mount=type=bind,source=inject-scripts/apt-install-safe.sh,target=/tmp/apt-install-safe.sh \
+    bash /tmp/apt-install-safe.sh \
+        build-essential cmake make gcc g++ gdb \
+        libyaml-cpp-dev \
+        libeigen3-dev \
+        libgeographic-dev \
+        libzmq3-dev \
+        libsdl2-dev \
+        libboost-all-dev \
+        libprotobuf-dev \
+        python-catkin-tools \
+        python3-catkin-tools \
+        ros-dev-tools \
+        python3-bloom python3-rosdep fakeroot debhelper dpkg-dev \
+        ros-${ROS_DISTRO}-ackermann-msgs \
+        ros-${ROS_DISTRO}-grid-map-msgs \
+        ros-${ROS_DISTRO}-rosbag2-storage-mcap
+
+# ---------------------------------------------------------------------------
+# Protobuf 3.21.5 from source
+# ---------------------------------------------------------------------------
+RUN --mount=type=bind,source=inject-scripts/install-protobuf.sh,target=/tmp/install-protobuf.sh \
+    bash /tmp/install-protobuf.sh
