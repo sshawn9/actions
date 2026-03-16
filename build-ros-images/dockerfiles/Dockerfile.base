@@ -21,6 +21,7 @@ LABEL org.opencontainers.image.description="ROS ${ROS_DISTRO} base with basic to
 # ---------------------------------------------------------------------------
 RUN --mount=type=bind,source=inject-scripts/apt-install-safe.sh,target=/tmp/apt-install-safe.sh \
     bash /tmp/apt-install-safe.sh \
+        sudo zsh \
         build-essential cmake make gcc g++ gdb \
         libyaml-cpp-dev \
         libeigen3-dev \
@@ -36,6 +37,16 @@ RUN --mount=type=bind,source=inject-scripts/apt-install-safe.sh,target=/tmp/apt-
         ros-${ROS_DISTRO}-ackermann-msgs \
         ros-${ROS_DISTRO}-grid-map-msgs \
         ros-${ROS_DISTRO}-rosbag2-storage-mcap
+
+# ---------------------------------------------------------------------------
+# Primary user: star (passwordless sudo)
+# ---------------------------------------------------------------------------
+RUN useradd -m -s /bin/zsh -G sudo star \
+    && echo "star ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/star \
+    && chmod 0440 /etc/sudoers.d/star
+
+USER star
+WORKDIR /home/star
 
 # ---------------------------------------------------------------------------
 # Protobuf from source
