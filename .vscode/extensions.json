@@ -1,0 +1,13 @@
+{
+  // Extensions suggested for this workspace to improve Nix and infrastructure workflows.
+  "recommendations": [
+    // AI pair-programming chat directly inside VS Code.
+    "github.copilot-chat",
+    // Applies .editorconfig rules consistently across editors and files.
+    "editorconfig.editorconfig"
+  ],
+  // Extensions that are intentionally not recommended in this workspace.
+  "unwantedRecommendations": [
+    // Keep empty unless you want to explicitly suppress conflicting extensions.
+  ]
+}
