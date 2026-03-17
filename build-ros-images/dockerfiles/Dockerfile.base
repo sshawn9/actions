@@ -19,22 +19,22 @@ LABEL org.opencontainers.image.description="ROS base with basic tools"
 # ---------------------------------------------------------------------------
 RUN --mount=type=bind,source=inject-scripts/apt-install-safe.sh,target=/tmp/apt-install-safe.sh \
     bash /tmp/apt-install-safe.sh \
-        sudo zsh \
-        build-essential cmake make gcc g++ gdb \
-        libyaml-cpp-dev \
-        libeigen3-dev \
-        libgeographic-dev \
-        libzmq3-dev \
-        libsdl2-dev \
-        libboost-all-dev \
-        libprotobuf-dev \
-        python-catkin-tools \
-        python3-catkin-tools \
-        ros-dev-tools \
-        python3-bloom python3-rosdep fakeroot debhelper dpkg-dev \
-        ros-${ROS_DISTRO}-ackermann-msgs \
-        ros-${ROS_DISTRO}-grid-map-msgs \
-        ros-${ROS_DISTRO}-rosbag2-storage-mcap
+    sudo zsh \
+    build-essential cmake make gcc g++ gdb \
+    libyaml-cpp-dev \
+    libeigen3-dev \
+    libgeographic-dev \
+    libzmq3-dev \
+    libsdl2-dev \
+    libboost-all-dev \
+    libprotobuf-dev \
+    python-catkin-tools \
+    python3-catkin-tools \
+    ros-dev-tools \
+    python3-bloom python3-rosdep fakeroot debhelper dpkg-dev \
+    ros-${ROS_DISTRO}-ackermann-msgs \
+    ros-${ROS_DISTRO}-grid-map-msgs \
+    ros-${ROS_DISTRO}-rosbag2-storage-mcap
 
 # ---------------------------------------------------------------------------
 # Primary user: star (passwordless sudo)
@@ -51,3 +51,8 @@ WORKDIR /home/star
 # ---------------------------------------------------------------------------
 RUN --mount=type=bind,source=inject-scripts/install-protobuf.sh,target=/tmp/install-protobuf.sh \
     bash /tmp/install-protobuf.sh
+
+
+RUN --mount=type=secret,id=gitee_pat \
+    --mount=type=bind,source=inject-scripts/set-msg-ws.sh,target=/tmp/set-msg-ws.sh \
+    GITEE_PAT=$(cat /run/secrets/gitee_pat) bash /tmp/set-msg-ws.sh
