@@ -4,19 +4,14 @@
 #
 # Build:
 #   docker buildx build \
-#     --build-arg ROS_DISTRO=humble \
-#     --build-arg BASE_IMAGE=sshawn/humble \
-#     --build-arg BASE_TAG=latest \
-#     -f dockerfiles/Dockerfile.desktop -t sshawn/humble-desktop:latest .
+#     --build-arg BASE_IMAGE=sshawn/humble:amd64 \
+#     -f dockerfiles/Dockerfile.desktop -t sshawn/humble-desktop:amd64 .
 # ============================================================================
 
-ARG BASE_IMAGE=sshawn/humble
-ARG BASE_TAG=latest
-FROM ${BASE_IMAGE}:${BASE_TAG}
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
 
-ARG ROS_DISTRO=humble
-
-LABEL org.opencontainers.image.description="ROS ${ROS_DISTRO} desktop with dev tools"
+LABEL org.opencontainers.image.description="ROS desktop with dev tools"
 
 # ---------------------------------------------------------------------------
 # CLI tools + ROS desktop-full

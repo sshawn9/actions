@@ -4,17 +4,15 @@
 #
 # Build:
 #   docker buildx build \
-#     --build-arg ROS_DISTRO=humble \
-#     -f dockerfiles/Dockerfile.base -t sshawn/humble:latest .
+#     --build-arg BASE_IMAGE=ros:humble \
+#     -f dockerfiles/Dockerfile.base -t sshawn/humble:amd64 .
 # ============================================================================
 
-ARG ROS_DISTRO=humble
-FROM ros:${ROS_DISTRO}
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
 
-# Re-declare after FROM so it's available in RUN
-ARG ROS_DISTRO
-
-LABEL org.opencontainers.image.description="ROS ${ROS_DISTRO} base with basic tools"
+# Extract ROS_DISTRO from the base image's environment (set by ros:<distro>)
+LABEL org.opencontainers.image.description="ROS base with basic tools"
 
 # ---------------------------------------------------------------------------
 # Build tools + development libraries + ROS packages
