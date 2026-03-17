@@ -47,6 +47,12 @@ USER star
 WORKDIR /home/star
 
 # ---------------------------------------------------------------------------
+# Auto-source ROS setup (with completion) for interactive shells
+# ---------------------------------------------------------------------------
+RUN sed -i '1i source "/opt/ros/$ROS_DISTRO/setup.bash"' ~/.bashrc \
+ && sed -i '1i source "/opt/ros/$ROS_DISTRO/setup.zsh"'  ~/.zshrc
+
+# ---------------------------------------------------------------------------
 # Protobuf from source
 # ---------------------------------------------------------------------------
 RUN --mount=type=bind,source=inject-scripts/install-protobuf.sh,target=/tmp/install-protobuf.sh \
