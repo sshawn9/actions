@@ -98,6 +98,12 @@ build_one() {
     cmd+=(-t "$t")
   done
 
+  if [[ -n "${ACTIONS_CACHE_URL:-}" ]]; then
+    cmd+=(--cache-from "type=gha" --cache-to "type=gha,mode=max")
+  fi
+
+  [[ -n "${GITEE_PAT:-}" ]] && cmd+=(--secret "id=gitee_pat,env=GITEE_PAT")
+
   [[ -n "$output" ]] && cmd+=("$output")
   cmd+=("$context_dir")
 
@@ -120,7 +126,7 @@ build_default() {
   context_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   local dry_run=""
   local args=()
-  local output="--push"
+  local output="--load --push"
 
   build_one "$dockerfile" "$base_image" \
     "$platform" "$context_dir" "$dry_run" args _build_default_tags "$output"
