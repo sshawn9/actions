@@ -43,15 +43,13 @@ RUN useradd -m -s /bin/zsh -G sudo star \
     && echo "star ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/star \
     && chmod 0440 /etc/sudoers.d/star
 
-USER star
-WORKDIR /home/star
-
 # ---------------------------------------------------------------------------
 # Auto-source ROS setup (with completion) for interactive shells
 # ---------------------------------------------------------------------------
-RUN touch ~/.bashrc ~/.zshrc \
- && sed -i '1i source "/opt/ros/$ROS_DISTRO/setup.bash"' ~/.bashrc \
- && sed -i '1i source "/opt/ros/$ROS_DISTRO/setup.zsh"'  ~/.zshrc
+RUN touch /home/star/.bashrc /home/star/.zshrc \
+ && sed -i '1i source "/opt/ros/$ROS_DISTRO/setup.bash"' /home/star/.bashrc \
+ && sed -i '1i source "/opt/ros/$ROS_DISTRO/setup.zsh"'  /home/star/.zshrc \
+ && chown star:star /home/star/.bashrc /home/star/.zshrc
 
 # ---------------------------------------------------------------------------
 # Protobuf from source
@@ -59,7 +57,12 @@ RUN touch ~/.bashrc ~/.zshrc \
 RUN --mount=type=bind,source=inject-scripts/install-protobuf.sh,target=/tmp/install-protobuf.sh \
     bash /tmp/install-protobuf.sh
 
-
 RUN --mount=type=secret,id=gitee_pat,mode=0444,uid=1000 \
     --mount=type=bind,source=inject-scripts/set-msg-ws.sh,target=/tmp/set-msg-ws.sh \
     GITEE_PAT=$(cat /run/secrets/gitee_pat) bash /tmp/set-msg-ws.sh
+
+# ---------------------------------------------------------------------------
+# Runtime defaults: non-root user
+# ---------------------------------------------------------------------------
+USER star
+WORKDIR /home/star

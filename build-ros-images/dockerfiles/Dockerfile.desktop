@@ -16,6 +16,7 @@ LABEL org.opencontainers.image.description="ROS desktop with dev tools"
 # ---------------------------------------------------------------------------
 # CLI tools + ROS desktop-full
 # ---------------------------------------------------------------------------
+USER root
 RUN --mount=type=bind,source=inject-scripts/apt-install-safe.sh,target=/tmp/apt-install-safe.sh \
     bash /tmp/apt-install-safe.sh \
         bash-completion \
@@ -31,3 +32,6 @@ RUN --mount=type=bind,source=inject-scripts/apt-install-safe.sh,target=/tmp/apt-
         openssh-server \
         ros-${ROS_DISTRO}-desktop-full \
         ros-${ROS_DISTRO}-plotjuggler-ros
+
+USER star
+WORKDIR /home/star

@@ -16,6 +16,7 @@ LABEL org.opencontainers.image.description="ROS for distrobox with full desktop 
 # ---------------------------------------------------------------------------
 # System / init / desktop environment / graphics / audio / networking
 # ---------------------------------------------------------------------------
+USER root
 RUN --mount=type=bind,source=inject-scripts/apt-install-safe.sh,target=/tmp/apt-install-safe.sh \
     bash /tmp/apt-install-safe.sh \
         systemd systemd-sysv libpam-systemd \
@@ -44,3 +45,6 @@ RUN --mount=type=bind,source=inject-scripts/apt-install-safe.sh,target=/tmp/apt-
         libegl1-mesa libgl1-mesa-glx \
         libgtk2.0-0 libgtk2.0-bin \
         librsvg2-common libvte-2.91-common
+
+USER star
+WORKDIR /home/star
