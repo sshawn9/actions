@@ -21,6 +21,8 @@ RUN --mount=type=bind,source=inject-scripts/apt-install-safe.sh,target=/tmp/apt-
     CATKIN_PKG="" && \
     if [ "$ROS_DISTRO" = "melodic" ]; then CATKIN_PKG="python-catkin-tools"; fi && \
     if [ "$ROS_DISTRO" = "noetic" ];  then CATKIN_PKG="python3-catkin-tools"; fi && \
+    PY_PKGS="python3-bloom python3-rosdep" && \
+    if [ "$ROS_DISTRO" = "melodic" ]; then PY_PKGS="python-bloom python-rosdep"; fi && \
     bash /tmp/apt-install-safe.sh \
     sudo zsh \
     build-essential cmake make gcc g++ gdb \
@@ -33,7 +35,8 @@ RUN --mount=type=bind,source=inject-scripts/apt-install-safe.sh,target=/tmp/apt-
     libprotobuf-dev \
     $CATKIN_PKG \
     ros-dev-tools \
-    python3-bloom python3-rosdep fakeroot debhelper dpkg-dev \
+    $PY_PKGS \
+    fakeroot debhelper dpkg-dev \
     ros-${ROS_DISTRO}-ackermann-msgs \
     ros-${ROS_DISTRO}-grid-map-msgs \
     ros-${ROS_DISTRO}-rosbag2-storage-mcap
@@ -49,9 +52,9 @@ RUN useradd -m -s /bin/zsh -G sudo star \
 # Auto-source ROS setup (with completion) for interactive shells
 # ---------------------------------------------------------------------------
 RUN touch /home/star/.bashrc /home/star/.zshrc \
- && sed -i '1i source "/opt/ros/$ROS_DISTRO/setup.bash"' /home/star/.bashrc \
- && sed -i '1i source "/opt/ros/$ROS_DISTRO/setup.zsh"'  /home/star/.zshrc \
- && chown star:star /home/star/.bashrc /home/star/.zshrc
+    && sed -i '1i source "/opt/ros/$ROS_DISTRO/setup.bash"' /home/star/.bashrc \
+    && sed -i '1i source "/opt/ros/$ROS_DISTRO/setup.zsh"'  /home/star/.zshrc \
+    && chown star:star /home/star/.bashrc /home/star/.zshrc
 
 # ---------------------------------------------------------------------------
 # Protobuf from source
