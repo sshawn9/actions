@@ -139,14 +139,14 @@ skopeo inspect docker://nginx:latest
 
 ### 总结：你的 `image-ops` 兵器谱对照表
 
-| 你的具体需求 | 应该拔出哪把武器？ | 为什么？ |
-| --- | --- | --- |
-| **A 到 B 仓库的日常同步** | 🗡️ **`regctl image copy`** | 速度最快，原生支持多架构，内置重试 |
-| **合并单架构为多架构镜像** | 🗡️ **`regctl index create/add`** | 逻辑最清晰，纯 API 层操作无数据搬运 |
-| **制作 `.tar` 离线安装包** | 🛡️ **`skopeo copy docker://... docker-archive:...`** | `regctl` 不支持打包为 tar |
-| **推送非容器的编译产物** | 🗡️ **`regctl artifact put`** | 原生支持 OCI Artifact 规范 |
-| **把本地 docker 的镜像推上云** | 🛡️ **`skopeo copy docker-daemon:... docker://...`** | 可以直接读取 Docker 守护进程的数据 |
-| **在 CI/CD 中验证镜像 Hash** | 🗡️ **`regctl image digest`** | 输出极简，适合 Bash 脚本做 `if` 判断 |
+| 你的具体需求                   | 应该拔出哪把武器？                                   | 为什么？                             |
+| ------------------------------ | ---------------------------------------------------- | ------------------------------------ |
+| **A 到 B 仓库的日常同步**      | 🗡️ **`regctl image copy`**                           | 速度最快，原生支持多架构，内置重试   |
+| **合并单架构为多架构镜像**     | 🗡️ **`regctl index create/add`**                     | 逻辑最清晰，纯 API 层操作无数据搬运  |
+| **制作 `.tar` 离线安装包**     | 🛡️ **`skopeo copy docker://... docker-archive:...`** | `regctl` 不支持打包为 tar            |
+| **推送非容器的编译产物**       | 🗡️ **`regctl artifact put`**                         | 原生支持 OCI Artifact 规范           |
+| **把本地 docker 的镜像推上云** | 🛡️ **`skopeo copy docker-daemon:... docker://...`**  | 可以直接读取 Docker 守护进程的数据   |
+| **在 CI/CD 中验证镜像 Hash**   | 🗡️ **`regctl image digest`**                         | 输出极简，适合 Bash 脚本做 `if` 判断 |
 
 有了这个列表，你的思路应该非常清晰了。
 

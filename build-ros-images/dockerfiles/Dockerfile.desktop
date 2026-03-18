@@ -16,18 +16,17 @@ LABEL org.opencontainers.image.description="ROS desktop with dev tools"
 # ---------------------------------------------------------------------------
 # CLI tools + ROS desktop-full
 # ---------------------------------------------------------------------------
-RUN --mount=type=bind,source=inject-scripts/apt-install-safe.sh,target=/tmp/apt-install-safe.sh \
-    bash /tmp/apt-install-safe.sh \
-        bash-completion \
-        rsync \
-        wget \
-        curl \
-        git \
-        git-lfs \
-        htop \
-        tmux \
-        vim \
-        python3-pip \
-        openssh-server \
-        ros-${ROS_DISTRO}-desktop-full \
-        ros-${ROS_DISTRO}-plotjuggler-ros
+RUN --mount=type=bind,source=inject-scripts/apt-install-safe.sh,target=/tmp/apt-install-safe.sh bash /tmp/apt-install-safe.sh \
+    bash-completion \
+    rsync \
+    wget \
+    curl \
+    git \
+    git-lfs \
+    htop \
+    tmux \
+    vim \
+    python3-pip \
+    openssh-server \
+    ros-${ROS_DISTRO}-desktop-full \
+    ros-${ROS_DISTRO}-plotjuggler-ros

@@ -23,26 +23,30 @@ host_arch() {
   local arch
   arch="$(uname -m)"
   case "$arch" in
-    x86_64)  echo "amd64" ;;
-    aarch64) echo "arm64" ;;
-    armv7l)  echo "armv7" ;;
-    *)       echo "Unsupported architecture: $arch" >&2; return 1 ;;
+  x86_64) echo "amd64" ;;
+  aarch64) echo "arm64" ;;
+  armv7l) echo "armv7" ;;
+  *)
+    echo "Unsupported architecture: $arch" >&2
+    return 1
+    ;;
   esac
 }
 
 # Detect native Docker platform from host architecture.
 native_platform() {
   case "$(uname -m)" in
-    x86_64)  echo "linux/amd64"  ;;
-    aarch64) echo "linux/arm64"  ;;
-    armv7l)  echo "linux/arm/v7" ;;
-    *)       echo "linux/$(uname -m)" ;;
+  x86_64) echo "linux/amd64" ;;
+  aarch64) echo "linux/arm64" ;;
+  armv7l) echo "linux/arm/v7" ;;
+  *) echo "linux/$(uname -m)" ;;
   esac
 }
 
 run_cmd() {
-  local dry_run="$1"; shift
-  if [[ "$dry_run" == "true" ]]; then
+  local dry_run="$1"
+  shift
+  if [[ $dry_run == "true" ]]; then
     echo "[dry-run] $*"
   else
     echo "+ $*"
@@ -86,7 +90,7 @@ build_one() {
 
   local cmd=(docker buildx build --platform "$platform" -f "$dockerfile")
 
-  [[ -n "$base_image" ]] && cmd+=(--build-arg "BASE_IMAGE=${base_image}")
+  [[ -n $base_image ]] && cmd+=(--build-arg "BASE_IMAGE=${base_image}")
 
   local arg
   for arg in "${_build_one_args[@]}"; do
@@ -98,13 +102,13 @@ build_one() {
     cmd+=(-t "$t")
   done
 
-  if [[ -n "${ACTIONS_CACHE_URL:-}" ]]; then
+  if [[ -n ${ACTIONS_CACHE_URL:-} ]]; then
     cmd+=(--cache-from "type=gha" --cache-to "type=gha,mode=max")
   fi
 
-  [[ -n "${GITEE_PAT:-}" ]] && cmd+=(--secret "id=gitee_pat,env=GITEE_PAT")
+  [[ -n ${GITEE_PAT:-} ]] && cmd+=(--secret "id=gitee_pat,env=GITEE_PAT")
 
-  [[ -n "$output" ]] && cmd+=("$output")
+  [[ -n $output ]] && cmd+=("$output")
   cmd+=("$context_dir")
 
   run_cmd "$dry_run" "${cmd[@]}"
@@ -137,7 +141,6 @@ build_default() {
     run_cmd "$dry_run" docker push "$t"
   done
 }
-
 
 build_base() {
   local distro="$1"

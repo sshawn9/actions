@@ -21,7 +21,7 @@ set -euo pipefail
 # Configuration: image list and registry addresses
 # =====================================================================
 
-SYNC_SOURCE="${SYNC_SOURCE:-registry}"  # "registry" or "local"
+SYNC_SOURCE="${SYNC_SOURCE:-registry}" # "registry" or "local"
 DOCKERHUB_USER="${DOCKERHUB_USERNAME:-sshawn}"
 ALIYUN_REGISTRY="registry.cn-beijing.aliyuncs.com"
 ALIYUN_USER="${ALIYUN_USERNAME:-sshawn}"
@@ -61,14 +61,14 @@ check_regctl() {
 
 # Auto-login if password env vars are set; otherwise rely on existing session
 login_registries() {
-  if [[ -n "${DOCKERHUB_PASSWORD:-}" ]]; then
+  if [[ -n ${DOCKERHUB_PASSWORD:-} ]]; then
     log "Logging in to Docker Hub ..."
     regctl registry login docker.io -u "${DOCKERHUB_USER}" -p "${DOCKERHUB_PASSWORD}"
   else
     log "DOCKERHUB_PASSWORD not set, skipping Docker Hub login (using existing session)"
   fi
 
-  if [[ -n "${ALIYUN_PASSWORD:-}" ]]; then
+  if [[ -n ${ALIYUN_PASSWORD:-} ]]; then
     log "Logging in to Aliyun ACR ..."
     regctl registry login "${ALIYUN_REGISTRY}" -u "${ALIYUN_USER}" -p "${ALIYUN_PASSWORD}"
   else
@@ -86,7 +86,7 @@ sync_repo() {
   local errors=0
 
   # In local mode, list tags from local Docker daemon
-  if [[ "${SYNC_SOURCE}" == "local" ]]; then
+  if [[ ${SYNC_SOURCE} == "local" ]]; then
     log "[${repo}] Listing local tags for ${src} ..."
     local tags
     tags=$(docker images "${src}" --format '{{.Tag}}' 2>/dev/null | grep -v '<none>') || {
@@ -103,7 +103,7 @@ sync_repo() {
     }
   fi
 
-  if [[ -z "${tags}" ]]; then
+  if [[ -z ${tags} ]]; then
     log "[${repo}] No tags found, skipping"
     return 0
   fi
@@ -115,9 +115,9 @@ sync_repo() {
   # Copy each tag
   local tag
   while IFS= read -r tag; do
-    [[ -z "${tag}" ]] && continue
+    [[ -z ${tag} ]] && continue
     sync_tag "${src}" "${dest}" "${tag}" || ((errors++)) || true
-  done <<< "${tags}"
+  done <<<"${tags}"
 
   log "[${repo}] Done (failed: ${errors}/${tag_count})"
   return "${errors}"
@@ -127,7 +127,7 @@ sync_repo() {
 # Args: $1 = source repo, $2 = dest repo, $3 = tag
 sync_tag() {
   local src="$1" dest="$2" tag="$3"
-  if [[ "${SYNC_SOURCE}" == "local" ]]; then
+  if [[ ${SYNC_SOURCE} == "local" ]]; then
     log "  [local] ${src}:${tag} -> ${dest}:${tag}"
     if ! skopeo copy --all "docker-daemon:${src}:${tag}" "docker://${dest}:${tag}"; then
       log "  ERROR: Failed to copy ${src}:${tag}"
@@ -152,7 +152,7 @@ main() {
   local total_errors=0
 
   local src_label
-  if [[ "${SYNC_SOURCE}" == "local" ]]; then
+  if [[ ${SYNC_SOURCE} == "local" ]]; then
     src_label="local Docker daemon"
   else
     src_label="docker.io/${DOCKERHUB_USER}"

@@ -4,35 +4,35 @@ on:
   workflow_dispatch:
     inputs:
       build_melodic:
-        description: 'melodic'
+        description: "melodic"
         type: boolean
         default: true
       build_noetic:
-        description: 'noetic'
+        description: "noetic"
         type: boolean
         default: true
       build_humble:
-        description: 'humble'
+        description: "humble"
         type: boolean
         default: true
       build_jazzy:
-        description: 'jazzy'
+        description: "jazzy"
         type: boolean
         default: true
       build_rolling:
-        description: 'rolling'
+        description: "rolling"
         type: boolean
         default: true
       stage_base:
-        description: 'base'
+        description: "base"
         type: boolean
         default: true
       stage_desktop:
-        description: 'desktop'
+        description: "desktop"
         type: boolean
         default: true
       stage_box:
-        description: 'box'
+        description: "box"
         type: boolean
         default: true
 
@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.gen.outputs.matrix }}
-      count:  ${{ steps.gen.outputs.count }}
+      count: ${{ steps.gen.outputs.count }}
     steps:
       - id: gen
         shell: bash

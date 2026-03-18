@@ -49,7 +49,8 @@ log_item() {
 }
 
 _log_numbered_list() {
-  local title="$1"; shift
+  local title="$1"
+  shift
   log_section "$title"
   if [[ $# -eq 0 ]]; then
     printf '    (none)\n'
@@ -57,7 +58,7 @@ _log_numbered_list() {
     local idx=1
     for p in "$@"; do
       log_item "$idx." "$p"
-      (( idx++ )) || true
+      ((idx++)) || true
     done
   fi
   echo
@@ -68,10 +69,22 @@ _log_numbered_list() {
 _parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --log)   LOG="$2"; shift 2 ;;
-      --debug) _DEBUG=true; shift ;;
-      -*)      echo "Unknown option: $1" >&2; exit 1 ;;
-      *)       PKGS+=("$1"); shift ;;
+    --log)
+      LOG="$2"
+      shift 2
+      ;;
+    --debug)
+      _DEBUG=true
+      shift
+      ;;
+    -*)
+      echo "Unknown option: $1" >&2
+      exit 1
+      ;;
+    *)
+      PKGS+=("$1")
+      shift
+      ;;
     esac
   done
 }
@@ -86,7 +99,7 @@ _validate_input() {
 _deduplicate() {
   declare -A seen
   for p in "${PKGS[@]}"; do
-    if [[ -z "${seen[$p]+x}" ]]; then
+    if [[ -z ${seen[$p]+x} ]]; then
       seen[$p]=1
       UNIQUE+=("$p")
     fi
@@ -109,8 +122,8 @@ _setup_error_trap() {
 
 _apt_update() {
   echo "$_PREFIX Configured apt sources:"
-  find /etc/apt/sources.list.d/ -name '*.list' -o -name '*.sources' 2>/dev/null \
-    | sort | while read -r f; do echo "  $f"; done
+  find /etc/apt/sources.list.d/ -name '*.list' -o -name '*.sources' 2>/dev/null |
+    sort | while read -r f; do echo "  $f"; done
   [[ -f /etc/apt/sources.list ]] && echo "  /etc/apt/sources.list"
 
   echo "$_PREFIX Running apt-get update ..."
@@ -123,7 +136,7 @@ _apt_update() {
 
   local warnings
   warnings="$(grep -iE '^(W:|E:|Err:|Hit:|Ign:)' <<<"$output" || true)"
-  if [[ -n "$warnings" ]]; then
+  if [[ -n $warnings ]]; then
     echo "$_PREFIX apt-get update warnings/status:"
     echo "$warnings"
   fi
@@ -139,7 +152,7 @@ _check_availability() {
     local pol cand
     pol="$(apt-cache policy "$p" 2>/dev/null || true)"
     cand="$(awk -F': ' '/Candidate:/ {print $2; exit}' <<<"$pol" || true)"
-    if [[ -n "$cand" && "$cand" != "(none)" ]]; then
+    if [[ -n $cand && $cand != "(none)" ]]; then
       TO_INSTALL+=("$p")
     else
       SKIPPED+=("$p")
@@ -184,7 +197,7 @@ _write_log_header() {
     _log_numbered_list "TO INSTALL  (${#TO_INSTALL[@]})" ${TO_INSTALL[@]+"${TO_INSTALL[@]}"}
     _log_numbered_list "SKIPPED — not found in any enabled repository  (${#SKIPPED[@]})" ${SKIPPED[@]+"${SKIPPED[@]}"}
   )"
-  echo "$buf" | as_root tee -a "$LOG" > /dev/null
+  echo "$buf" | as_root tee -a "$LOG" >/dev/null
 
   if [[ ${#SKIPPED[@]} -gt 0 ]]; then
     echo "$_PREFIX Skipping unavailable packages: ${SKIPPED[*]}"
@@ -213,16 +226,16 @@ _cleanup() {
 }
 
 _write_log_footer() {
-  local elapsed=$(( $(date +%s) - _START_TIME ))
+  local elapsed=$(($(date +%s) - _START_TIME))
 
   local buf
   buf="$(
     log_section "RESULT"
-    printf '    %-10s  %s\n'  "Status:"  "$INSTALL_STATUS"
+    printf '    %-10s  %s\n' "Status:" "$INSTALL_STATUS"
     printf '    %-10s  %ds\n' "Elapsed:" "$elapsed"
     echo "$_LOG_SEC"
   )"
-  echo "$buf" | as_root tee -a "$LOG" > /dev/null
+  echo "$buf" | as_root tee -a "$LOG" >/dev/null
 
   echo "$_PREFIX Done.  (${elapsed}s)"
 }

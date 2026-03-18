@@ -56,7 +56,7 @@ else
   echo "Downloading ${PROTOBUF_URL} ..."
   wget -t 10 "$PROTOBUF_URL"
 
-  if [[ ! -f "$PROTOBUF_TARBALL" ]]; then
+  if [[ ! -f $PROTOBUF_TARBALL ]]; then
     echo "Failed to download ${PROTOBUF_TARBALL}" >&2
     exit 1
   fi
