@@ -42,6 +42,9 @@ log_item() {
   printf "    %-4s  %s\n" "$1" "$2"
 }
 
+# Run a command as root: use sudo only when the current user is not root
+as_root() { [[ $EUID -eq 0 ]] && "$@" || sudo "$@"; }
+
 # ── Arguments ─────────────────────────────────────────────────────────────────
 
 PKGS=()
@@ -105,7 +108,7 @@ done
 
 # -o Acquire::Retries=5: retry downloads up to 5 times on transient network errors
 echo "[apt-install-safe] Running apt-get update ..."
-APT_UPDATE_OUTPUT="$(apt-get update -o Acquire::Retries=5 2>&1)" || {
+APT_UPDATE_OUTPUT="$(as_root apt-get update -o Acquire::Retries=5 2>&1)" || {
   echo "[apt-install-safe] apt-get update FAILED (exit $?)"
   echo "$APT_UPDATE_OUTPUT"
   exit 1
@@ -121,9 +124,9 @@ fi
 # ── Fix permissions ───────────────────────────────────────────────────────────
 
 # Some environments leave the partial dir missing or with wrong perms, causing apt to fail
-install -d -m 0755 /var/cache/apt/archives/partial
+as_root install -d -m 0755 /var/cache/apt/archives/partial
 # u+rwX: owner read/write/execute-on-dirs; go+rX: others read/execute-on-dirs
-chmod -R u+rwX,go+rX /var/cache/apt/archives
+as_root chmod -R u+rwX,go+rX /var/cache/apt/archives
 
 # ── Check availability ────────────────────────────────────────────────────────
 
@@ -170,7 +173,7 @@ echo ""
 
 # ── Log header ────────────────────────────────────────────────────────────────
 
-mkdir -p "$(dirname "$LOG")"
+as_root mkdir -p "$(dirname "$LOG")"
 
 {
   # Three blank lines before each run make boundaries obvious when tailing
@@ -212,7 +215,7 @@ mkdir -p "$(dirname "$LOG")"
   fi
   echo
 
-} >> "$LOG"
+} | as_root tee -a "$LOG" > /dev/null
 
 if [[ ${#SKIPPED[@]} -gt 0 ]]; then
   echo "[apt-install-safe] Skipping unavailable packages: ${SKIPPED[*]}"
@@ -226,7 +229,7 @@ INSTALL_RC=0
 if [[ ${#TO_INSTALL[@]} -gt 0 ]]; then
   # [PERMANENT] Show exact install command for reproducibility
   echo "[apt-install-safe] Installing ${#TO_INSTALL[@]} packages: ${TO_INSTALL[*]}"
-  apt-get install -y --no-install-recommends "${TO_INSTALL[@]}" || {
+  as_root apt-get install -y --no-install-recommends "${TO_INSTALL[@]}" || {
     INSTALL_RC=$?
     INSTALL_STATUS="FAILED (exit ${INSTALL_RC})"
     # [PERMANENT] On failure, dump detailed apt/dpkg state
@@ -243,7 +246,7 @@ fi
 # ── Cleanup ───────────────────────────────────────────────────────────────────
 
 # Remove package index files to reduce image layer size (standard Docker practice)
-rm -rf /var/lib/apt/lists/*
+as_root rm -rf /var/lib/apt/lists/*
 
 # ── Log footer ────────────────────────────────────────────────────────────────
 
@@ -254,7 +257,7 @@ _ELAPSED=$(( $(date +%s) - _START_TIME ))
   printf '    %-10s  %s\n'  "Status:"  "$INSTALL_STATUS"
   printf '    %-10s  %ds\n' "Elapsed:" "$_ELAPSED"
   echo "$_LOG_SEP"
-} >> "$LOG"
+} | as_root tee -a "$LOG" > /dev/null
 
 echo "[apt-install-safe] Done.  (${_ELAPSED}s)"
 exit $INSTALL_RC
