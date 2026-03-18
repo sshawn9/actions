@@ -48,6 +48,9 @@ RUN useradd -m -s /bin/zsh -G sudo star \
     && echo "star ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/star \
     && chmod 0440 /etc/sudoers.d/star
 
+USER star
+WORKDIR /home/star
+
 # ---------------------------------------------------------------------------
 # Auto-source ROS setup (with completion) for interactive shells
 # ---------------------------------------------------------------------------
