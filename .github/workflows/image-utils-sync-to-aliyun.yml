@@ -1,0 +1,22 @@
+name: Sync DockerHub Images to Aliyun ACR
+
+on:
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install regctl
+        uses: regclient/actions/regctl-installer@main
+
+      - name: Run sync script
+        env:
+          DOCKERHUB_USERNAME: sshawn
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          ALIYUN_USERNAME: sshawn
+          ALIYUN_PASSWORD: ${{ secrets.ALIYUN_PASSWORD }}
+        run: bash image-utils/sync-to-aliyun.sh
