@@ -45,17 +45,17 @@ jobs:
           set -euo pipefail
 
           distros=()
-          [[ "${{ inputs.build_melodic }}" == "true" ]] && distros+=(melodic)
-          [[ "${{ inputs.build_noetic }}"  == "true" ]] && distros+=(noetic)
-          [[ "${{ inputs.build_humble }}"  == "true" ]] && distros+=(humble)
-          [[ "${{ inputs.build_jazzy }}"   == "true" ]] && distros+=(jazzy)
-          [[ ${#distros[@]} -eq 0 ]] && echo "::error::At least one distro must be selected" && exit 1
+          if [[ "${{ inputs.build_melodic }}" == "true" ]]; then distros+=(melodic); fi
+          if [[ "${{ inputs.build_noetic }}"  == "true" ]]; then distros+=(noetic);  fi
+          if [[ "${{ inputs.build_humble }}"  == "true" ]]; then distros+=(humble);  fi
+          if [[ "${{ inputs.build_jazzy }}"   == "true" ]]; then distros+=(jazzy);   fi
+          if [[ ${#distros[@]} -eq 0 ]]; then echo "::error::At least one distro must be selected"; exit 1; fi
 
           stages=()
-          [[ "${{ inputs.stage_base }}"    == "true" ]] && stages+=(base)
-          [[ "${{ inputs.stage_desktop }}" == "true" ]] && stages+=(desktop)
-          [[ "${{ inputs.stage_box }}"     == "true" ]] && stages+=(box)
-          [[ ${#stages[@]} -eq 0 ]] && echo "::error::At least one stage must be selected" && exit 1
+          if [[ "${{ inputs.stage_base }}"    == "true" ]]; then stages+=(base);    fi
+          if [[ "${{ inputs.stage_desktop }}" == "true" ]]; then stages+=(desktop); fi
+          if [[ "${{ inputs.stage_box }}"     == "true" ]]; then stages+=(box);     fi
+          if [[ ${#stages[@]} -eq 0 ]]; then echo "::error::At least one stage must be selected"; exit 1; fi
 
           matrix='[]'
           for d in "${distros[@]}"; do
@@ -95,6 +95,6 @@ jobs:
           set -euo pipefail
           source build.sh
 
-          [[ "${{ inputs.stage_base }}"    == "true" ]] && build_base    "$DISTRO"
-          [[ "${{ inputs.stage_desktop }}" == "true" ]] && build_desktop "$DISTRO"
-          [[ "${{ inputs.stage_box }}"     == "true" ]] && build_box     "$DISTRO"
+          if [[ "${{ inputs.stage_base }}"    == "true" ]]; then build_base    "$DISTRO"; fi
+          if [[ "${{ inputs.stage_desktop }}" == "true" ]]; then build_desktop "$DISTRO"; fi
+          if [[ "${{ inputs.stage_box }}"     == "true" ]]; then build_box     "$DISTRO"; fi
