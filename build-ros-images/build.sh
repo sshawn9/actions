@@ -150,7 +150,7 @@ build_base() {
   date_tag="$(TZ=Asia/Shanghai date +%Y%m%d)"
   if regctl index create "sshawn/${distro}:latest" \
     --ref "sshawn/${distro}:amd64" --ref "sshawn/${distro}:arm64" 2>/dev/null; then
-    regctl tag set "sshawn/${distro}:latest" "${date_tag}"
+    regctl image copy "sshawn/${distro}:latest" "sshawn/${distro}:${date_tag}"
   fi
 }
 
@@ -165,7 +165,7 @@ build_desktop() {
   date_tag="$(TZ=Asia/Shanghai date +%Y%m%d)"
   if regctl index create "sshawn/${distro}-desktop:latest" \
     --ref "sshawn/${distro}-desktop:amd64" --ref "sshawn/${distro}-desktop:arm64" 2>/dev/null; then
-    regctl tag set "sshawn/${distro}-desktop:latest" "${date_tag}"
+    regctl image copy "sshawn/${distro}-desktop:latest" "sshawn/${distro}-desktop:${date_tag}"
   fi
 }
 
@@ -180,6 +180,6 @@ build_box() {
   date_tag="$(TZ=Asia/Shanghai date +%Y%m%d)"
   if regctl index create "sshawn/${distro}-box:latest" \
     --ref "sshawn/${distro}-box:amd64" --ref "sshawn/${distro}-box:arm64" 2>/dev/null; then
-    regctl tag set "sshawn/${distro}-box:latest" "${date_tag}"
+    regctl image copy "sshawn/${distro}-box:latest" "sshawn/${distro}-box:${date_tag}"
   fi
 }
