@@ -18,6 +18,9 @@ LABEL org.opencontainers.image.description="ROS base with basic tools"
 # Build tools + development libraries + ROS packages
 # ---------------------------------------------------------------------------
 RUN --mount=type=bind,source=inject-scripts/apt-install-safe.sh,target=/tmp/apt-install-safe.sh \
+    CATKIN_PKG="" && \
+    if [ "$ROS_DISTRO" = "melodic" ]; then CATKIN_PKG="python-catkin-tools"; fi && \
+    if [ "$ROS_DISTRO" = "noetic" ];  then CATKIN_PKG="python3-catkin-tools"; fi && \
     bash /tmp/apt-install-safe.sh \
     sudo zsh \
     build-essential cmake make gcc g++ gdb \
@@ -28,8 +31,7 @@ RUN --mount=type=bind,source=inject-scripts/apt-install-safe.sh,target=/tmp/apt-
     libsdl2-dev \
     libboost-all-dev \
     libprotobuf-dev \
-    python-catkin-tools \
-    python3-catkin-tools \
+    $CATKIN_PKG \
     ros-dev-tools \
     python3-bloom python3-rosdep fakeroot debhelper dpkg-dev \
     ros-${ROS_DISTRO}-ackermann-msgs \
