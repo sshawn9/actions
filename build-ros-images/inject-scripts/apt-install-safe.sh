@@ -96,8 +96,27 @@ trap 'rc=$?
 
 # ── apt-get update ────────────────────────────────────────────────────────────
 
-# -o Acquire::Retries=3: retry downloads up to 3 times on transient network errors
-apt-get update -o Acquire::Retries=3
+# [PERMANENT] Show apt source list for diagnostics
+echo "[apt-install-safe] Configured apt sources:"
+find /etc/apt/sources.list.d/ -name '*.list' -o -name '*.sources' 2>/dev/null | sort | while read -r f; do
+  echo "  $f"
+done
+[[ -f /etc/apt/sources.list ]] && echo "  /etc/apt/sources.list"
+
+# -o Acquire::Retries=5: retry downloads up to 5 times on transient network errors
+echo "[apt-install-safe] Running apt-get update ..."
+APT_UPDATE_OUTPUT="$(apt-get update -o Acquire::Retries=5 2>&1)" || {
+  echo "[apt-install-safe] apt-get update FAILED (exit $?)"
+  echo "$APT_UPDATE_OUTPUT"
+  exit 1
+}
+
+# [PERMANENT] Show warnings/errors from apt-get update (Failed to fetch, hash mismatch, etc.)
+APT_UPDATE_WARNINGS="$(grep -iE '^(W:|E:|Err:|Hit:|Ign:)' <<<"$APT_UPDATE_OUTPUT" || true)"
+if [[ -n "$APT_UPDATE_WARNINGS" ]]; then
+  echo "[apt-install-safe] apt-get update warnings/status:"
+  echo "$APT_UPDATE_WARNINGS"
+fi
 
 # ── Fix permissions ───────────────────────────────────────────────────────────
 
@@ -121,8 +140,33 @@ for p in "${UNIQUE[@]}"; do
     TO_INSTALL+=("$p")
   else
     SKIPPED+=("$p")
+    # [PERMANENT] Show why a package was skipped
+    echo "[apt-install-safe] SKIP '$p' — apt-cache policy output:"
+    echo "$pol" | sed 's/^/    /'
   fi
 done
+
+# ── DEBUG: detailed package diagnostics ───────────────────────────────────────
+# [DEBUG] Remove this block after troubleshooting exit-code-100 issue
+echo ""
+echo "======== [DEBUG] apt-cache policy for each requested package ========"
+for p in "${UNIQUE[@]}"; do
+  echo "--- $p ---"
+  apt-cache policy "$p" 2>&1 || true
+done
+echo ""
+echo "======== [DEBUG] apt-cache stats ========"
+apt-cache stats 2>&1 || true
+echo ""
+echo "======== [DEBUG] dpkg architecture info ========"
+dpkg --print-architecture 2>&1 || true
+dpkg --print-foreign-architectures 2>&1 || true
+echo ""
+echo "======== [DEBUG] ROS_DISTRO=${ROS_DISTRO:-<unset>} ========"
+echo "======== [DEBUG] end ========"
+echo ""
+# [DEBUG] end
+# ──────────────────────────────────────────────────────────────────────────────
 
 # ── Log header ────────────────────────────────────────────────────────────────
 
@@ -180,10 +224,17 @@ INSTALL_STATUS="success"
 INSTALL_RC=0
 
 if [[ ${#TO_INSTALL[@]} -gt 0 ]]; then
-  echo "[apt-install-safe] Installing ${#TO_INSTALL[@]} packages ..."
+  # [PERMANENT] Show exact install command for reproducibility
+  echo "[apt-install-safe] Installing ${#TO_INSTALL[@]} packages: ${TO_INSTALL[*]}"
   apt-get install -y --no-install-recommends "${TO_INSTALL[@]}" || {
     INSTALL_RC=$?
     INSTALL_STATUS="FAILED (exit ${INSTALL_RC})"
+    # [PERMANENT] On failure, dump detailed apt/dpkg state
+    echo "[apt-install-safe] install failed with exit code ${INSTALL_RC}"
+    echo "[apt-install-safe] Last 40 lines of /var/log/apt/term.log:"
+    tail -n 40 /var/log/apt/term.log 2>/dev/null || true
+    echo "[apt-install-safe] Last 40 lines of /var/log/dpkg.log:"
+    tail -n 40 /var/log/dpkg.log 2>/dev/null || true
   }
 else
   echo "[apt-install-safe] Nothing to install."
