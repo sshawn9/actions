@@ -1,4 +1,4 @@
-name: Sync DockerHub Images to Aliyun ACR
+name: image-utils-sync-to-aliyun
 
 on:
   workflow_dispatch:
