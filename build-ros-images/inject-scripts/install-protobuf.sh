@@ -18,13 +18,7 @@ if [[ $EUID -ne 0 ]] && ! command -v sudo &>/dev/null; then
   echo "ERROR: not root and sudo is unavailable" >&2
   exit 1
 fi
-as_root() {
-  if [[ $EUID -eq 0 ]]; then
-    "$@"
-  else
-    sudo "$@"
-  fi
-}
+as_root() { [[ $EUID -eq 0 ]] && "$@" || sudo "$@"; }
 
 PROTOBUF_VERSION="3.21.5"
 PROTOBUF_TAG="v21.5"
