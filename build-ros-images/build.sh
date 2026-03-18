@@ -126,10 +126,16 @@ build_default() {
   context_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   local dry_run=""
   local args=()
-  local output="--load --push"
+  local output="--load"
 
   build_one "$dockerfile" "$base_image" \
     "$platform" "$context_dir" "$dry_run" args _build_default_tags "$output"
+
+  # Push all tags to registry after loading locally
+  local t
+  for t in "${_build_default_tags[@]}"; do
+    run_cmd "$dry_run" docker push "$t"
+  done
 }
 
 
