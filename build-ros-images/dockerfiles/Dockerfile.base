@@ -60,6 +60,6 @@ RUN --mount=type=bind,source=inject-scripts/install-protobuf.sh,target=/tmp/inst
     bash /tmp/install-protobuf.sh
 
 
-RUN --mount=type=secret,id=gitee_pat \
+RUN --mount=type=secret,id=gitee_pat,mode=0444,uid=1000 \
     --mount=type=bind,source=inject-scripts/set-msg-ws.sh,target=/tmp/set-msg-ws.sh \
     GITEE_PAT=$(cat /run/secrets/gitee_pat) bash /tmp/set-msg-ws.sh
