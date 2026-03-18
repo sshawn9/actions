@@ -146,6 +146,12 @@ build_base() {
   local tags=("sshawn/${distro}:${arch}")
 
   build_default "dockerfiles/Dockerfile.base" "ros:${distro}" tags
+  local date_tag
+  date_tag="$(TZ=Asia/Shanghai date +%Y%m%d)"
+  if regctl index create "sshawn/${distro}:latest" \
+    --ref "sshawn/${distro}:amd64" --ref "sshawn/${distro}:arm64" 2>/dev/null; then
+    regctl tag set "sshawn/${distro}:latest" "${date_tag}"
+  fi
 }
 
 build_desktop() {
@@ -155,6 +161,12 @@ build_desktop() {
   local tags=("sshawn/${distro}-desktop:${arch}")
 
   build_default "dockerfiles/Dockerfile.desktop" "sshawn/${distro}:${arch}" tags
+  local date_tag
+  date_tag="$(TZ=Asia/Shanghai date +%Y%m%d)"
+  if regctl index create "sshawn/${distro}-desktop:latest" \
+    --ref "sshawn/${distro}-desktop:amd64" --ref "sshawn/${distro}-desktop:arm64" 2>/dev/null; then
+    regctl tag set "sshawn/${distro}-desktop:latest" "${date_tag}"
+  fi
 }
 
 build_box() {
@@ -164,4 +176,10 @@ build_box() {
   local tags=("sshawn/${distro}-box:${arch}")
 
   build_default "dockerfiles/Dockerfile.box" "sshawn/${distro}-desktop:${arch}" tags
+  local date_tag
+  date_tag="$(TZ=Asia/Shanghai date +%Y%m%d)"
+  if regctl index create "sshawn/${distro}-box:latest" \
+    --ref "sshawn/${distro}-box:amd64" --ref "sshawn/${distro}-box:arm64" 2>/dev/null; then
+    regctl tag set "sshawn/${distro}-box:latest" "${date_tag}"
+  fi
 }
