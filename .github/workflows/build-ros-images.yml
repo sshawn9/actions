@@ -19,6 +19,10 @@ on:
         description: 'jazzy'
         type: boolean
         default: true
+      build_rolling:
+        description: 'rolling'
+        type: boolean
+        default: true
       stage_base:
         description: 'base'
         type: boolean
@@ -49,6 +53,7 @@ jobs:
           if [[ "${{ inputs.build_noetic }}"  == "true" ]]; then distros+=(noetic);  fi
           if [[ "${{ inputs.build_humble }}"  == "true" ]]; then distros+=(humble);  fi
           if [[ "${{ inputs.build_jazzy }}"   == "true" ]]; then distros+=(jazzy);   fi
+          if [[ "${{ inputs.build_rolling }}" == "true" ]]; then distros+=(rolling); fi
           if [[ ${#distros[@]} -eq 0 ]]; then echo "::error::At least one distro must be selected"; exit 1; fi
 
           stages=()
