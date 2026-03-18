@@ -85,6 +85,12 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
+      - name: Install regctl
+        uses: regclient/actions/regctl-installer@main
+
+      - name: Log in to Docker Hub (regctl)
+        run: regctl registry login docker.io -u "${{ secrets.DOCKERHUB_USERNAME }}" -p "${{ secrets.DOCKERHUB_PASSWORD }}"
+
       - name: Build
         shell: bash
         working-directory: build-ros-images
