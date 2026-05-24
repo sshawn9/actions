@@ -41,6 +41,9 @@ SYNC_LIST=(
   jazzy
   jazzy-desktop
   jazzy-box
+  lyrical
+  lyrical-desktop
+  lyrical-box
   rolling
   rolling-desktop
   rolling-box
