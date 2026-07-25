@@ -131,33 +131,38 @@ jobs:
           )
           uv python install --managed-python "${python_versions[@]}"
 
-          python_bin_dir="$(uv python dir --bin)"
-          echo "${python_bin_dir}" >> "${GITHUB_PATH}"
-          export PATH="${python_bin_dir}:${PATH}"
+          venv_root="${GITHUB_WORKSPACE}/.python-build-venvs"
+          python_shim_dir="${GITHUB_WORKSPACE}/.python-shims"
+          mkdir -p "${venv_root}" "${python_shim_dir}"
+          echo "${python_shim_dir}" >> "${GITHUB_PATH}"
+          export PATH="${python_shim_dir}:${PATH}"
 
           python_version_csv="$(IFS=,; echo "${python_versions[*]}")"
           auditwheel_version="$(printf '%s\n' "${python_versions[@]}" | sort -V | tail -n 1)"
-          auditwheel_python="$(uv python find --managed-python "${auditwheel_version}")"
 
           for version in "${python_versions[@]}"; do
-            python_executable="$(uv python find --managed-python "${version}")"
+            managed_python="$(uv python find --managed-python "${version}")"
+            venv_dir="${venv_root}/python-${version}"
+            uv venv --python "${managed_python}" "${venv_dir}"
             uv pip install \
-              --python "${python_executable}" \
-              --system \
+              --python "${venv_dir}/bin/python" \
               --upgrade \
               distro \
               setuptools \
               wheel
 
+            ln -s "${venv_dir}/bin/python" \
+              "${python_shim_dir}/python${version}"
+            python_executable="${python_shim_dir}/python${version}"
             include_dir="$("${python_executable}" -c \
               'import sysconfig; print(sysconfig.get_path("include"))')"
             test -f "${include_dir}/Python.h"
             "${python_executable}" --version
           done
 
+          auditwheel_python="${venv_root}/python-${auditwheel_version}/bin/python"
           uv pip install \
             --python "${auditwheel_python}" \
-            --system \
             --upgrade \
             auditwheel
 
