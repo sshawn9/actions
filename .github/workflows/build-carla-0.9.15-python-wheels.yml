@@ -220,9 +220,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          # The official PythonAPI target builds common dependencies, LibCarla,
-          # and OSM2ODR once. The small compatibility patch lets Setup.sh and
-          # BuildPythonAPI.sh read the same comma-separated Python version list.
+          # Match CARLA's official Jenkins order. With parallel make enabled,
+          # PythonAPI may otherwise start OSM2ODR before setup installs Xerces-C.
+          make setup
+
+          # The compatibility patch lets Setup.sh and BuildPythonAPI.sh read
+          # the same comma-separated Python version list.
           make PythonAPI
 
           shopt -s nullglob
