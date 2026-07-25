@@ -133,10 +133,7 @@ jobs:
           uv python install --managed-python "${python_versions[@]}"
 
           venv_root="${GITHUB_WORKSPACE}/.python-build-venvs"
-          python_shim_dir="${GITHUB_WORKSPACE}/.python-shims"
-          mkdir -p "${venv_root}" "${python_shim_dir}"
-          echo "${python_shim_dir}" >> "${GITHUB_PATH}"
-          export PATH="${python_shim_dir}:${PATH}"
+          mkdir -p "${venv_root}"
 
           python_version_csv="$(IFS=,; echo "${python_versions[*]}")"
           auditwheel_version="$(printf '%s\n' "${python_versions[@]}" | sort -V | tail -n 1)"
@@ -152,12 +149,16 @@ jobs:
               setuptools \
               wheel
 
-            ln -s "${venv_dir}/bin/python" \
-              "${python_shim_dir}/python${version}"
-            python_executable="${python_shim_dir}/python${version}"
+            # CARLA invokes exact names such as `python3.9` through env. Add
+            # each venv's bin directory directly so CPython can find the
+            # adjacent pyvenv.cfg and load packages installed in that venv.
+            echo "${venv_dir}/bin" >> "${GITHUB_PATH}"
+            python_executable="${venv_dir}/bin/python${version}"
+            test -x "${python_executable}"
             include_dir="$("${python_executable}" -c \
               'import sysconfig; print(sysconfig.get_path("include"))')"
             test -f "${include_dir}/Python.h"
+            "${python_executable}" -c 'import distro, setuptools, wheel'
             "${python_executable}" --version
           done
 
@@ -220,6 +221,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          mapfile -t python_versions < <(
+            jq -r 'unique[]' <<< "${PYTHON_VERSIONS_JSON}" | sort -V
+          )
+          for version in "${python_versions[@]}"; do
+            python_executable="$(command -v "python${version}")"
+            echo "Python ${version}: ${python_executable}"
+            "${python_executable}" -c 'import distro, setuptools, wheel'
+          done
 
           # Match CARLA's official Jenkins order. With parallel make enabled,
           # PythonAPI may otherwise start OSM2ODR before setup installs Xerces-C.
