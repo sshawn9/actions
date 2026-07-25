@@ -1,0 +1,311 @@
+name: build-carla-0.9.15-python-wheels
+
+on:
+  workflow_dispatch:
+    inputs:
+      python_versions:
+        description: 'JSON array of CPython versions, for example ["3.9","3.10"]'
+        required: true
+        type: string
+        default: '["3.9","3.10","3.11","3.12","3.13","3.14"]'
+      publish_release:
+        description: "Publish the wheels to a GitHub Release"
+        required: true
+        type: boolean
+        default: true
+      release_tag:
+        description: "GitHub Release tag used when publishing"
+        required: true
+        type: string
+        default: "carla-python-api-0.9.15"
+
+concurrency:
+  group: carla-0.9.15-python-wheels-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  CARLA_VERSION: "0.9.15"
+  WHEEL_PLATFORM: "manylinux_2_31_x86_64"
+
+jobs:
+  build:
+    name: Python ${{ matrix.python }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ${{ fromJSON(inputs.python_versions) }}
+    container:
+      # Debian 11 has glibc 2.31, matching the wheel policy enforced below.
+      # One Python per job keeps CARLA's large native build below runner limits.
+      image: python:${{ matrix.python }}-bullseye
+      options: --user root
+    env:
+      CARLA_BOOST_TOOLSET: "clang"
+      CARLA_BUILD_CONCURRENCY: "2"
+      CARLA_BUILD_NO_COLOR: "1"
+      CARLA_CMAKE_EXTRA_OPTIONS: "-DLIBCARLA_BUILD_TEST=OFF"
+      CARLA_LLVM_INCLUDE: "/usr/include/c++/v1"
+      CARLA_LLVM_LIBPATH: "/usr/lib/x86_64-linux-gnu"
+      CARLA_SYSROOT_FLAGS: ""
+      CARLA_VERSION_OVERRIDE: "0.9.15"
+      CC: "clang"
+      CXX: "clang++"
+      CMAKE_BUILD_PARALLEL_LEVEL: "2"
+      DEBIAN_FRONTEND: noninteractive
+      MAKEFLAGS: "-j2"
+      PYTHON_VERSION: ${{ matrix.python }}
+      TZ: UTC
+
+    steps:
+      - name: Show initial disk space
+        shell: bash
+        run: |
+          set -euo pipefail
+          df -h
+
+      - name: Check out workflow support files
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            autoconf \
+            build-essential \
+            ca-certificates \
+            clang \
+            cmake \
+            curl \
+            file \
+            git \
+            jq \
+            libjpeg-dev \
+            libpng-dev \
+            libtiff-dev \
+            libc++-dev \
+            libc++abi-dev \
+            libtool \
+            libxml2-dev \
+            lld \
+            ninja-build \
+            patchelf \
+            rsync \
+            tzdata \
+            unzip \
+            wget \
+            zlib1g-dev
+
+          rm -rf /var/lib/apt/lists/*
+
+          python -m pip install --no-cache-dir \
+            auditwheel==6.1.0 \
+            distro==1.9.0 \
+            packaging==24.0 \
+            setuptools==69.5.1 \
+            wheel==0.43.0
+
+          python --version
+          clang --version
+          cmake --version
+          df -h
+
+      - name: Fetch official CARLA source
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Assets and Unreal content are unnecessary for LibCarla client wheels.
+          export GIT_LFS_SKIP_SMUDGE=1
+
+          git clone \
+            --depth 1 \
+            --branch "${CARLA_VERSION}" \
+            --single-branch \
+            https://github.com/carla-simulator/carla.git \
+            carla
+
+          echo "CARLA_COMMIT=$(git -C carla rev-parse HEAD)" >> "${GITHUB_ENV}"
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}/carla"
+
+      - name: Apply minimal hosted-runner compatibility patch
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git -C carla apply --check \
+            "${GITHUB_WORKSPACE}/.github/patches/carla-0.9.15-hosted-runner.patch"
+          git -C carla apply \
+            "${GITHUB_WORKSPACE}/.github/patches/carla-0.9.15-hosted-runner.patch"
+
+          test "$(git -C carla describe --tags --always)" = "${CARLA_VERSION}"
+          test -f carla/Util/BuildTools/Setup.sh
+          grep -q 'CARLA_LLVM_INCLUDE' carla/Util/BuildTools/Setup.sh
+          grep -q 'CARLA_LLVM_INCLUDE' carla/Util/BuildTools/BuildOSM2ODR.sh
+          grep -q 'CARLA_VERSION_OVERRIDE' carla/Util/BuildTools/Environment.sh
+
+          git -C carla diff --stat
+          df -h
+
+      - name: Build LibCarla client and Python wheel
+        working-directory: carla
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # This is the same target used by CARLA's 0.9.15 Jenkinsfile:
+          # PythonAPI -> LibCarla.client.release + osm2odr -> setup.
+          # It does not download assets or compile the Unreal server.
+          make PythonAPI ARGS="--python-version=${PYTHON_VERSION}"
+
+          shopt -s nullglob
+          wheels=(PythonAPI/carla/dist/*.whl)
+          if [[ ${#wheels[@]} -ne 1 ]]; then
+            echo "::error::Expected one raw wheel, found ${#wheels[@]}"
+            exit 1
+          fi
+
+          file "${wheels[0]}"
+          du -sh Build PythonAPI/carla/dependencies PythonAPI/carla/dist
+          df -h
+
+      - name: Repair and validate manylinux wheel
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          output_dir="${GITHUB_WORKSPACE}/dist/python-${PYTHON_VERSION}"
+          mkdir -p "${output_dir}"
+
+          shopt -s nullglob
+          raw_wheels=(carla/PythonAPI/carla/dist/*.whl)
+          if [[ ${#raw_wheels[@]} -ne 1 ]]; then
+            echo "::error::Expected one raw wheel, found ${#raw_wheels[@]}"
+            exit 1
+          fi
+
+          python -m auditwheel show "${raw_wheels[0]}"
+          python -m auditwheel repair \
+            --plat "${WHEEL_PLATFORM}" \
+            --wheel-dir "${output_dir}" \
+            "${raw_wheels[0]}"
+
+          repaired_wheels=("${output_dir}"/*.whl)
+          if [[ ${#repaired_wheels[@]} -ne 1 ]]; then
+            echo "::error::Expected one repaired wheel, found ${#repaired_wheels[@]}"
+            exit 1
+          fi
+
+          python -m auditwheel show "${repaired_wheels[0]}"
+
+          verify_dir="$(mktemp -d)"
+          python -m venv "${verify_dir}/venv"
+          "${verify_dir}/venv/bin/python" -m pip install \
+            --disable-pip-version-check \
+            --no-deps \
+            "${repaired_wheels[0]}"
+          "${verify_dir}/venv/bin/python" - <<'PY'
+          import carla
+
+          client_version = carla.Client("127.0.0.1", 2000).get_client_version()
+          assert client_version == "0.9.15", client_version
+          assert carla.Location(x=1.0, y=2.0, z=3.0).x == 1.0
+          print(f"Imported {carla.__file__}")
+          print(f"CARLA client version: {client_version}")
+          PY
+          rm -rf "${verify_dir}"
+
+      - name: Write build metadata and reclaim disk
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          output_dir="${GITHUB_WORKSPACE}/dist/python-${PYTHON_VERSION}"
+          python_tag="cp${PYTHON_VERSION//./}"
+
+          cp carla/LICENSE "${output_dir}/LICENSE-CARLA.txt"
+          jq -n \
+            --arg carla_version "${CARLA_VERSION}" \
+            --arg carla_commit "${CARLA_COMMIT}" \
+            --arg patch_sha256 "$(sha256sum .github/patches/carla-0.9.15-hosted-runner.patch | cut -d' ' -f1)" \
+            --arg python_version "${PYTHON_VERSION}" \
+            --arg platform "${WHEEL_PLATFORM}" \
+            --arg compiler "$(clang --version | head -n 1)" \
+            '{
+              carla_version: $carla_version,
+              carla_commit: $carla_commit,
+              buildtools_version: $carla_version,
+              hosted_runner_patch_sha256: $patch_sha256,
+              python_version: $python_version,
+              platform: $platform,
+              compiler: $compiler
+            }' > "${output_dir}/build-manifest-${python_tag}.json"
+
+          (
+            cd "${output_dir}"
+            sha256sum ./*.whl > "SHA256SUMS-${python_tag}"
+          )
+
+          ls -lh "${output_dir}"
+
+          # Only the small release artifacts are needed by subsequent Actions.
+          rm -rf carla
+          df -h
+
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: carla-${{ env.CARLA_VERSION }}-python-${{ matrix.python }}-${{ env.WHEEL_PLATFORM }}
+          path: dist/python-${{ matrix.python }}/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+  release:
+    name: Publish GitHub Release
+    if: inputs.publish_release
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download wheels
+        uses: actions/download-artifact@v4
+        with:
+          pattern: carla-${{ env.CARLA_VERSION }}-python-*
+          path: dist
+          merge-multiple: true
+
+      - name: List release files
+        shell: bash
+        run: |
+          set -euo pipefail
+          find dist -maxdepth 1 -type f -printf '%f\n' | sort
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          name: CARLA ${{ env.CARLA_VERSION }} Python wheels
+          body: |
+            Client-only CARLA ${{ env.CARLA_VERSION }} Python wheels.
+
+            Built from the official CARLA source using the official
+            `PythonAPI -> LibCarla.client.release + osm2odr -> setup` dependency
+            chain. CARLA 0.9.15's own BuildTools are retained; a small,
+            auditable patch allows the scripts to use the runner's compiler and
+            libc++ instead of requiring the UE4 installation.
+            Build manifests and SHA-256 checksums are attached.
+          files: |
+            dist/*.whl
+            dist/build-manifest-*.json
+            dist/SHA256SUMS-*
+            dist/LICENSE-CARLA.txt
+          fail_on_unmatched_files: true

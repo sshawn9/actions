@@ -1,0 +1,177 @@
+diff --git a/Util/BuildTools/BuildLibCarla.sh b/Util/BuildTools/BuildLibCarla.sh
+--- a/Util/BuildTools/BuildLibCarla.sh
++++ b/Util/BuildTools/BuildLibCarla.sh
+@@ -122,7 +122,7 @@ fi
+ #     usage: build_libcarla {Server,Client,ClientRSS} {Debug,Release}
+ #
+ function build_libcarla {
+ 
+-  CMAKE_EXTRA_OPTIONS=''
++  CMAKE_EXTRA_OPTIONS="${CARLA_CMAKE_EXTRA_OPTIONS:-}"
+ 
+   if [ $1 == Server ] ; then
+     M_TOOLCHAIN=${LIBCPP_TOOLCHAIN_FILE}
+diff --git a/Util/BuildTools/BuildOSM2ODR.sh b/Util/BuildTools/BuildOSM2ODR.sh
+--- a/Util/BuildTools/BuildOSM2ODR.sh
++++ b/Util/BuildTools/BuildOSM2ODR.sh
+@@ -89,9 +89,12 @@ if ${BUILD_OSM2ODR} ; then
+   mkdir -p ${OSM2ODR_BUILD_FOLDER}
+   cd ${OSM2ODR_BUILD_FOLDER}
+ 
+-  export CC="$UE4_ROOT/Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/Linux_x64/v17_clang-10.0.1-centos7/x86_64-unknown-linux-gnu/bin/clang"
+-  export CXX="$UE4_ROOT/Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/Linux_x64/v17_clang-10.0.1-centos7/x86_64-unknown-linux-gnu/bin/clang++"
+-  export PATH="$UE4_ROOT/Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/Linux_x64/v17_clang-10.0.1-centos7/x86_64-unknown-linux-gnu/bin:$PATH"
++  export CC="${CC:-$UE4_ROOT/Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/Linux_x64/v17_clang-10.0.1-centos7/x86_64-unknown-linux-gnu/bin/clang}"
++  export CXX="${CXX:-$UE4_ROOT/Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/Linux_x64/v17_clang-10.0.1-centos7/x86_64-unknown-linux-gnu/bin/clang++}"
++  UE4_TOOLCHAIN_BIN="$UE4_ROOT/Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/Linux_x64/v17_clang-10.0.1-centos7/x86_64-unknown-linux-gnu/bin"
++  if [[ -d "${UE4_TOOLCHAIN_BIN}" ]] ; then
++    export PATH="${UE4_TOOLCHAIN_BIN}:$PATH"
++  fi
+ 
+   cmake ${OSM2ODR_SOURCE_FOLDER} \
+       -G "Eclipse CDT4 - Ninja" \
+@@ -109,8 +112,8 @@ if ${BUILD_OSM2ODR} ; then
+   cd ${OSM2ODR_SERVER_BUILD_FOLDER}
+ 
+   LLVM_BASENAME=llvm-8.0
+-  LLVM_INCLUDE="$UE4_ROOT/Engine/Source/ThirdParty/Linux/LibCxx/include/c++/v1"
+-  LLVM_LIBPATH="$UE4_ROOT/Engine/Source/ThirdParty/Linux/LibCxx/lib/Linux/x86_64-unknown-linux-gnu"
++  LLVM_INCLUDE="${CARLA_LLVM_INCLUDE:-$UE4_ROOT/Engine/Source/ThirdParty/Linux/LibCxx/include/c++/v1}"
++  LLVM_LIBPATH="${CARLA_LLVM_LIBPATH:-$UE4_ROOT/Engine/Source/ThirdParty/Linux/LibCxx/lib/Linux/x86_64-unknown-linux-gnu}"
+ 
+   echo $LLVM_INCLUDE
+   echo $LLVM_LIBPATH
+@@ -131,8 +134,8 @@ if ${BUILD_OSM2ODR} ; then
+   cd ${OSM2ODR_SERVER_BUILD_FOLDER}
+ 
+   LLVM_BASENAME=llvm-8.0
+-  LLVM_INCLUDE="$UE4_ROOT/Engine/Source/ThirdParty/Linux/LibCxx/include/c++/v1"
+-  LLVM_LIBPATH="$UE4_ROOT/Engine/Source/ThirdParty/Linux/LibCxx/lib/Linux/x86_64-unknown-linux-gnu"
++  LLVM_INCLUDE="${CARLA_LLVM_INCLUDE:-$UE4_ROOT/Engine/Source/ThirdParty/Linux/LibCxx/include/c++/v1}"
++  LLVM_LIBPATH="${CARLA_LLVM_LIBPATH:-$UE4_ROOT/Engine/Source/ThirdParty/Linux/LibCxx/lib/Linux/x86_64-unknown-linux-gnu}"
+ 
+   cmake ${OSM2ODR_SOURCE_FOLDER} \
+       -G "Eclipse CDT4 - Ninja" \
+diff --git a/Util/BuildTools/BuildPythonAPI.sh b/Util/BuildTools/BuildPythonAPI.sh
+--- a/Util/BuildTools/BuildPythonAPI.sh
++++ b/Util/BuildTools/BuildPythonAPI.sh
+@@ -48,10 +48,13 @@ while [[ $# -gt 0 ]]; do
+   esac
+ done
+ 
+ 
+-export CC="$UE4_ROOT/Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/Linux_x64/v17_clang-10.0.1-centos7/x86_64-unknown-linux-gnu/bin/clang"
+-export CXX="$UE4_ROOT/Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/Linux_x64/v17_clang-10.0.1-centos7/x86_64-unknown-linux-gnu/bin/clang++"
+-export PATH="$UE4_ROOT/Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/Linux_x64/v17_clang-10.0.1-centos7/x86_64-unknown-linux-gnu/bin:$PATH"
++export CC="${CC:-$UE4_ROOT/Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/Linux_x64/v17_clang-10.0.1-centos7/x86_64-unknown-linux-gnu/bin/clang}"
++export CXX="${CXX:-$UE4_ROOT/Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/Linux_x64/v17_clang-10.0.1-centos7/x86_64-unknown-linux-gnu/bin/clang++}"
++UE4_TOOLCHAIN_BIN="$UE4_ROOT/Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/Linux_x64/v17_clang-10.0.1-centos7/x86_64-unknown-linux-gnu/bin"
++if [[ -d "${UE4_TOOLCHAIN_BIN}" ]] ; then
++  export PATH="${UE4_TOOLCHAIN_BIN}:$PATH"
++fi
+ 
+ source $(dirname "$0")/Environment.sh
+ 
+diff --git a/Util/BuildTools/Environment.sh b/Util/BuildTools/Environment.sh
+--- a/Util/BuildTools/Environment.sh
++++ b/Util/BuildTools/Environment.sh
+@@ -33,7 +33,11 @@ else
+ fi
+ 
+ function get_git_repository_version {
+-  git describe --tags --dirty --always
++  if [[ -n "${CARLA_VERSION_OVERRIDE:-}" ]] ; then
++    echo "${CARLA_VERSION_OVERRIDE}"
++  else
++    git describe --tags --dirty --always
++  fi
+ }
+ 
+ function copy_if_changed {
+@@ -46,4 +50,4 @@ function move_if_changed {
+   rm -f $1
+ }
+ 
+-CARLA_BUILD_CONCURRENCY=`nproc --all`
++CARLA_BUILD_CONCURRENCY=${CARLA_BUILD_CONCURRENCY:-$(nproc --all)}
+diff --git a/Util/BuildTools/Setup.sh b/Util/BuildTools/Setup.sh
+--- a/Util/BuildTools/Setup.sh
++++ b/Util/BuildTools/Setup.sh
+@@ -47,9 +47,12 @@ done
+ 
+ source $(dirname "$0")/Environment.sh
+ 
+-export CC="$UE4_ROOT/Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/Linux_x64/v17_clang-10.0.1-centos7/x86_64-unknown-linux-gnu/bin/clang"
+-export CXX="$UE4_ROOT/Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/Linux_x64/v17_clang-10.0.1-centos7/x86_64-unknown-linux-gnu/bin/clang++"
+-export PATH="$UE4_ROOT/Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/Linux_x64/v17_clang-10.0.1-centos7/x86_64-unknown-linux-gnu/bin:$PATH"
++export CC="${CC:-$UE4_ROOT/Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/Linux_x64/v17_clang-10.0.1-centos7/x86_64-unknown-linux-gnu/bin/clang}"
++export CXX="${CXX:-$UE4_ROOT/Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/Linux_x64/v17_clang-10.0.1-centos7/x86_64-unknown-linux-gnu/bin/clang++}"
++UE4_TOOLCHAIN_BIN="$UE4_ROOT/Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/Linux_x64/v17_clang-10.0.1-centos7/x86_64-unknown-linux-gnu/bin"
++if [[ -d "${UE4_TOOLCHAIN_BIN}" ]] ; then
++  export PATH="${UE4_TOOLCHAIN_BIN}:$PATH"
++fi
+ 
+ CXX_TAG=c10
+ 
+@@ -59,9 +62,9 @@ IFS="," read -r -a PY_VERSION_LIST <<< "${PY_VERSION_LIST}"
+ mkdir -p ${CARLA_BUILD_FOLDER}
+ pushd ${CARLA_BUILD_FOLDER} >/dev/null
+ 
+-LLVM_INCLUDE="$UE4_ROOT/Engine/Source/ThirdParty/Linux/LibCxx/include/c++/v1"
+-LLVM_LIBPATH="$UE4_ROOT/Engine/Source/ThirdParty/Linux/LibCxx/lib/Linux/x86_64-unknown-linux-gnu"
+-UNREAL_HOSTED_CFLAGS="--sysroot=$UE4_ROOT/Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/Linux_x64/v17_clang-10.0.1-centos7/x86_64-unknown-linux-gnu/"
++LLVM_INCLUDE="${CARLA_LLVM_INCLUDE:-$UE4_ROOT/Engine/Source/ThirdParty/Linux/LibCxx/include/c++/v1}"
++LLVM_LIBPATH="${CARLA_LLVM_LIBPATH:-$UE4_ROOT/Engine/Source/ThirdParty/Linux/LibCxx/lib/Linux/x86_64-unknown-linux-gnu}"
++UNREAL_HOSTED_CFLAGS="${CARLA_SYSROOT_FLAGS---sysroot=$UE4_ROOT/Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/Linux_x64/v17_clang-10.0.1-centos7/x86_64-unknown-linux-gnu/}"
+ 
+ # ==============================================================================
+ # -- Get boost includes --------------------------------------------------------
+@@ -91,9 +94,9 @@ for PY_VERSION in ${PY_VERSION_LIST[@]} ; do
+     BOOST_PACKAGE_BASENAME=boost_${BOOST_VERSION//./_}
+ 
+     log "Retrieving boost."
+-    wget "https://boostorg.jfrog.io/artifactory/main/release/${BOOST_VERSION}/source/${BOOST_PACKAGE_BASENAME}.tar.gz" || true
++    wget "https://archives.boost.io/release/${BOOST_VERSION}/source/${BOOST_PACKAGE_BASENAME}.tar.gz" || true
+     # try to use the backup boost we have in Jenkins
+     if [[ ! -f "${BOOST_PACKAGE_BASENAME}.tar.gz" ]] ; then
+       log "Using boost backup"
+-      wget "https://carla-releases.s3.eu-west-3.amazonaws.com/Backup/${BOOST_PACKAGE_BASENAME}.tar.gz" || true
++      wget "https://carla-releases.s3.us-east-005.backblazeb2.com/Backup/${BOOST_PACKAGE_BASENAME}.tar.gz" || true
+     fi
+@@ -105,7 +108,7 @@ for PY_VERSION in ${PY_VERSION_LIST[@]} ; do
+ 
+     pushd ${BOOST_BASENAME}-source >/dev/null
+ 
+-    BOOST_TOOLSET="clang-10.0"
++    BOOST_TOOLSET="${CARLA_BOOST_TOOLSET:-clang-10.0}"
+     BOOST_CFLAGS="-fPIC -std=c++14 -DBOOST_ERROR_CODE_HEADER_ONLY"
+ 
+     py3="/usr/bin/env python${PY_VERSION}"
+@@ -339,7 +342,7 @@ unset RECAST_BASENAME
+ # ==============================================================================
+ 
+ LIBPNG_VERSION=1.6.37
+-LIBPNG_REPO=https://sourceforge.net/projects/libpng/files/libpng16/${LIBPNG_VERSION}/libpng-${LIBPNG_VERSION}.tar.xz
++LIBPNG_REPO=https://downloads.sourceforge.net/project/libpng/libpng16/${LIBPNG_VERSION}/libpng-${LIBPNG_VERSION}.tar.xz
+ LIBPNG_BASENAME=libpng-${LIBPNG_VERSION}
+ LIBPNG_INSTALL=${LIBPNG_BASENAME}-install
+ 
+@@ -395,5 +398,5 @@ else
+   # try to use the backup boost we have in Jenkins
+   if [[ ! -f "${XERCESC_BASENAME}.tar.gz" ]] ; then
+     log "Using xerces backup"
+-    wget "https://carla-releases.s3.eu-west-3.amazonaws.com/Backup/${XERCESC_BASENAME}.tar.gz" || true
++    wget "https://carla-releases.s3.us-east-005.backblazeb2.com/Backup/${XERCESC_BASENAME}.tar.gz" || true
+   fi
+diff --git a/PythonAPI/carla/setup.py b/PythonAPI/carla/setup.py
+--- a/PythonAPI/carla/setup.py
++++ b/PythonAPI/carla/setup.py
+@@ -31,7 +31,7 @@ def get_libcarla_extensions():
+     if os.name == "posix":
+         import distro
+ 
+-        linux_distro = distro.linux_distribution()[0]
++        linux_distro = distro.id()
+         if linux_distro.lower() in ["ubuntu", "debian", "deepin"]:
+             pwd = os.path.dirname(os.path.realpath(__file__))
+             pylib = "libboost_python%d%d.a" % (sys.version_info.major,
