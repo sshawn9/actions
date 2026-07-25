@@ -55,6 +55,10 @@ diff --git a/Util/BuildTools/BuildOSM2ODR.sh b/Util/BuildTools/BuildOSM2ODR.sh
 diff --git a/Util/BuildTools/BuildPythonAPI.sh b/Util/BuildTools/BuildPythonAPI.sh
 --- a/Util/BuildTools/BuildPythonAPI.sh
 +++ b/Util/BuildTools/BuildPythonAPI.sh
+@@ -19,2 +19,2 @@ eval set -- "$OPTS"
+-PY_VERSION_LIST=3
++PY_VERSION_LIST=${CARLA_PYTHON_VERSION_LIST:-3}
+ TARGET_WHEEL_PLATFORM=
 @@ -48,10 +48,13 @@ while [[ $# -gt 0 ]]; do
    esac
  done
@@ -97,6 +101,10 @@ diff --git a/Util/BuildTools/Environment.sh b/Util/BuildTools/Environment.sh
 diff --git a/Util/BuildTools/Setup.sh b/Util/BuildTools/Setup.sh
 --- a/Util/BuildTools/Setup.sh
 +++ b/Util/BuildTools/Setup.sh
+@@ -15,2 +15,2 @@ eval set -- "$OPTS"
+-PY_VERSION_LIST=3
++PY_VERSION_LIST=${CARLA_PYTHON_VERSION_LIST:-3}
+ USE_CHRONO=false
 @@ -47,9 +47,12 @@ done
  
  source $(dirname "$0")/Environment.sh
