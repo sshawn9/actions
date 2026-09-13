@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${CARLA_REAL_PATCHELF:?CARLA_REAL_PATCHELF must point to the CARLA-built patchelf}"
+
+# Debian 11 still ships some x86-64 DSOs with 2 MiB PT_LOAD alignment. If
+# patchelf appends a segment at a 4 KiB boundary, glibc rejects the result with
+# "ELF load command address/offset not properly aligned". Preserve the largest
+# x86-64 alignment while auditwheel rewrites SONAME/RPATH entries.
+exec "${CARLA_REAL_PATCHELF}" \
+  --page-size "${CARLA_PATCHELF_PAGE_SIZE:-2097152}" \
+  "$@"

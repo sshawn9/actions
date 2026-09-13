@@ -14,7 +14,42 @@ diff --git a/Util/BuildTools/BuildLibCarla.sh b/Util/BuildTools/BuildLibCarla.sh
 diff --git a/Util/BuildTools/BuildOSM2ODR.sh b/Util/BuildTools/BuildOSM2ODR.sh
 --- a/Util/BuildTools/BuildOSM2ODR.sh
 +++ b/Util/BuildTools/BuildOSM2ODR.sh
-@@ -89,9 +89,12 @@ if ${BUILD_OSM2ODR} ; then
+@@ -78,20 +78,43 @@ if ${BUILD_OSM2ODR} ; then
+   log "Building OSM2ODR."
+   # [ ! -d ${OSM2ODR_BUILD_FOLDER} ] && mkdir ${OSM2ODR_BUILD_FOLDER}
+   if ${GIT_PULL} ; then
+-    if [ ! -d ${OSM2ODR_SOURCE_FOLDER} ] ; then
+-      git clone -b ${OSM2ODR_BRANCH} ${OSM2ODR_REPO} ${OSM2ODR_SOURCE_FOLDER}
++    if [ -d ${OSM2ODR_SOURCE_FOLDER}/.git ] && \
++       ! git -C ${OSM2ODR_SOURCE_FOLDER} rev-parse --git-dir >/dev/null 2>&1 ; then
++      git config --global --add safe.directory ${OSM2ODR_SOURCE_FOLDER}
++    fi
++    if [ -d ${OSM2ODR_SOURCE_FOLDER}/.git ] && {
++      [[ "$(git -C ${OSM2ODR_SOURCE_FOLDER} rev-parse --is-shallow-repository)" != "true" ]] ||
++      [[ "$(git -C ${OSM2ODR_SOURCE_FOLDER} config --get remote.origin.partialclonefilter)" != "blob:none" ]] ||
++      [[ "$(git -C ${OSM2ODR_SOURCE_FOLDER} config --get core.sparseCheckout)" != "true" ]]
++    } ; then
++      log "Replacing non-sparse OSM2ODR source cache."
++      rm -Rf ${OSM2ODR_SOURCE_FOLDER}
++    fi
++    if [ ! -d ${OSM2ODR_SOURCE_FOLDER}/.git ] ; then
++      git init ${OSM2ODR_SOURCE_FOLDER}
++      git -C ${OSM2ODR_SOURCE_FOLDER} remote add origin ${OSM2ODR_REPO}
++      git -C ${OSM2ODR_SOURCE_FOLDER} fetch --depth 1 --filter=blob:none origin ${CURRENT_OSM2ODR_COMMIT}
++      git -C ${OSM2ODR_SOURCE_FOLDER} update-ref --no-deref HEAD FETCH_HEAD
++      git -C ${OSM2ODR_SOURCE_FOLDER} sparse-checkout init --cone
++      git -C ${OSM2ODR_SOURCE_FOLDER} sparse-checkout set src build/cmake_modules
++      git -C ${OSM2ODR_SOURCE_FOLDER} read-tree -mu HEAD
+     fi
+     cd ${OSM2ODR_SOURCE_FOLDER}
+-    git fetch
+-    git checkout ${CURRENT_OSM2ODR_COMMIT}
++    if [[ "$(git rev-parse HEAD 2>/dev/null || true)" != "${CURRENT_OSM2ODR_COMMIT}" ]] ; then
++      git fetch --depth 1 --filter=blob:none origin ${CURRENT_OSM2ODR_COMMIT}
++      git checkout --detach ${CURRENT_OSM2ODR_COMMIT}
++    fi
+   fi
+ 
    mkdir -p ${OSM2ODR_BUILD_FOLDER}
    cd ${OSM2ODR_BUILD_FOLDER}
  
@@ -30,7 +65,7 @@ diff --git a/Util/BuildTools/BuildOSM2ODR.sh b/Util/BuildTools/BuildOSM2ODR.sh
  
    cmake ${OSM2ODR_SOURCE_FOLDER} \
        -G "Eclipse CDT4 - Ninja" \
-@@ -109,8 +112,8 @@ if ${BUILD_OSM2ODR} ; then
+@@ -109,8 +132,8 @@ if ${BUILD_OSM2ODR} ; then
    cd ${OSM2ODR_SERVER_BUILD_FOLDER}
  
    LLVM_BASENAME=llvm-8.0
@@ -41,7 +76,7 @@ diff --git a/Util/BuildTools/BuildOSM2ODR.sh b/Util/BuildTools/BuildOSM2ODR.sh
  
    echo $LLVM_INCLUDE
    echo $LLVM_LIBPATH
-@@ -131,8 +134,8 @@ if ${BUILD_OSM2ODR} ; then
+@@ -131,8 +154,8 @@ if ${BUILD_OSM2ODR} ; then
    cd ${OSM2ODR_SERVER_BUILD_FOLDER}
  
    LLVM_BASENAME=llvm-8.0
@@ -55,10 +90,6 @@ diff --git a/Util/BuildTools/BuildOSM2ODR.sh b/Util/BuildTools/BuildOSM2ODR.sh
 diff --git a/Util/BuildTools/BuildPythonAPI.sh b/Util/BuildTools/BuildPythonAPI.sh
 --- a/Util/BuildTools/BuildPythonAPI.sh
 +++ b/Util/BuildTools/BuildPythonAPI.sh
-@@ -19,2 +19,2 @@ eval set -- "$OPTS"
--PY_VERSION_LIST=3
-+PY_VERSION_LIST=${CARLA_PYTHON_VERSION_LIST:-3}
- TARGET_WHEEL_PLATFORM=
 @@ -48,10 +48,13 @@ while [[ $# -gt 0 ]]; do
    esac
  done
@@ -101,10 +132,6 @@ diff --git a/Util/BuildTools/Environment.sh b/Util/BuildTools/Environment.sh
 diff --git a/Util/BuildTools/Setup.sh b/Util/BuildTools/Setup.sh
 --- a/Util/BuildTools/Setup.sh
 +++ b/Util/BuildTools/Setup.sh
-@@ -15,2 +15,2 @@ eval set -- "$OPTS"
--PY_VERSION_LIST=3
-+PY_VERSION_LIST=${CARLA_PYTHON_VERSION_LIST:-3}
- USE_CHRONO=false
 @@ -47,9 +47,12 @@ done
  
  source $(dirname "$0")/Environment.sh
@@ -146,16 +173,26 @@ diff --git a/Util/BuildTools/Setup.sh b/Util/BuildTools/Setup.sh
 -      wget "https://carla-releases.s3.eu-west-3.amazonaws.com/Backup/${BOOST_PACKAGE_BASENAME}.tar.gz" || true
 +      wget "https://carla-releases.s3.us-east-005.backblazeb2.com/Backup/${BOOST_PACKAGE_BASENAME}.tar.gz" || true
      fi
-@@ -105,7 +108,7 @@ for PY_VERSION in ${PY_VERSION_LIST[@]} ; do
+@@ -105,7 +108,17 @@ for PY_VERSION in ${PY_VERSION_LIST[@]} ; do
  
      pushd ${BOOST_BASENAME}-source >/dev/null
  
 -    BOOST_TOOLSET="clang-10.0"
++    # Boost.Python 1.80 still uses an API removed in CPython 3.13. This is
++    # Boost.Python upstream commit 41e208ecb598552f6d8c3bf9acacd5611d49a50d.
++    sed -i 's/PyEval_CallMethod/PyObject_CallMethod/' boost/python/call_method.hpp
++    grep -q 'PyObject_CallMethod' boost/python/call_method.hpp
++
++    # Boost.Python upstream commit a218babc8daee904a83f550fb66e5cb3f1cb3013
++    # fixes enum_type_object for CPython 3.11 and newer.
++    sed -i '/^[[:space:]]*| Py_TPFLAGS_HAVE_GC$/d' libs/python/src/object/enum.cpp
++    ! grep -q '^[[:space:]]*| Py_TPFLAGS_HAVE_GC$' libs/python/src/object/enum.cpp
++
 +    BOOST_TOOLSET="${CARLA_BOOST_TOOLSET:-clang-10.0}"
      BOOST_CFLAGS="-fPIC -std=c++14 -DBOOST_ERROR_CODE_HEADER_ONLY"
  
      py3="/usr/bin/env python${PY_VERSION}"
-@@ -339,7 +342,7 @@ unset RECAST_BASENAME
+@@ -339,7 +347,7 @@ unset RECAST_BASENAME
  # ==============================================================================
  
  LIBPNG_VERSION=1.6.37
@@ -164,13 +201,40 @@ diff --git a/Util/BuildTools/Setup.sh b/Util/BuildTools/Setup.sh
  LIBPNG_BASENAME=libpng-${LIBPNG_VERSION}
  LIBPNG_INSTALL=${LIBPNG_BASENAME}-install
  
-@@ -395,5 +398,5 @@ else
+@@ -392,7 +400,7 @@ else
    # try to use the backup boost we have in Jenkins
    if [[ ! -f "${XERCESC_BASENAME}.tar.gz" ]] ; then
      log "Using xerces backup"
 -    wget "https://carla-releases.s3.eu-west-3.amazonaws.com/Backup/${XERCESC_BASENAME}.tar.gz" || true
 +    wget "https://carla-releases.s3.us-east-005.backblazeb2.com/Backup/${XERCESC_BASENAME}.tar.gz" || true
    fi
+ 
+   log "Extracting xerces-c."
+@@ -632,6 +640,7 @@ else
+   pushd ${PROJ_SRC_DIR}/build >/dev/null
+ 
+   cmake -G "Ninja" .. \
++      -DCMAKE_C_FLAGS="-fPIC" \
+       -DCMAKE_CXX_FLAGS="-std=c++14 -fPIC" \
+       -DSQLITE3_INCLUDE_DIR=${SQLITE_INCLUDE_DIR} -DSQLITE3_LIBRARY=${SQLITE_LIB} \
+       -DEXE_SQLITE3=${SQLITE_EXE} \
+@@ -650,6 +659,7 @@ else
+   pushd ${PROJ_SRC_DIR}/build >/dev/null
+ 
+   cmake -G "Ninja" .. \
++      -DCMAKE_C_FLAGS="-fPIC" \
+       -DCMAKE_CXX_FLAGS="-std=c++14 -fPIC -stdlib=libc++ -I${LLVM_INCLUDE} -Wl,-L${LLVM_LIBPATH}"  \
+       -DSQLITE3_INCLUDE_DIR=${SQLITE_INCLUDE_DIR} -DSQLITE3_LIBRARY=${SQLITE_LIB} \
+       -DEXE_SQLITE3=${SQLITE_EXE} \
+@@ -677,7 +687,7 @@ cp -p ${PROJ_SERVER_LIB} ${LIBCARLA_INSTALL_SERVER_FOLDER}/lib/
+ # -- Get and compile patchelf --------------------------------------------------
+ # ==============================================================================
+ 
+-PATCHELF_VERSION=0.12
++PATCHELF_VERSION=0.18.0
+ PATCHELF_REPO=https://github.com/NixOS/patchelf/archive/${PATCHELF_VERSION}.tar.gz
+ 
+ PATCHELF_TAR=${PATCHELF_VERSION}.tar.gz
 diff --git a/PythonAPI/carla/setup.py b/PythonAPI/carla/setup.py
 --- a/PythonAPI/carla/setup.py
 +++ b/PythonAPI/carla/setup.py

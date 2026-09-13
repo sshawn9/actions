@@ -28,349 +28,76 @@ permissions:
 
 env:
   CARLA_VERSION: "0.9.15"
-  WHEEL_PLATFORM: "manylinux_2_31_x86_64"
+  CARLA_WHEEL_PLATFORM: "manylinux_2_31_x86_64"
 
 jobs:
   build:
     name: Build all Python wheels
     runs-on: ubuntu-22.04
-    timeout-minutes: 240
+    timeout-minutes: 360
     container:
-      # Debian 11 has glibc 2.31, matching the wheel policy enforced below.
-      # All CPython versions share one dependency and LibCarla build.
+      # Debian 11 provides the glibc 2.31 ABI baseline. One container builds
+      # shared dependencies and every requested Python wheel.
       image: debian:bullseye-slim
       options: --user root
     env:
-      CARLA_BOOST_TOOLSET: "clang"
       CARLA_BUILD_CONCURRENCY: "2"
-      CARLA_BUILD_NO_COLOR: "1"
-      CARLA_CMAKE_EXTRA_OPTIONS: "-DLIBCARLA_BUILD_TEST=OFF"
-      CARLA_LLVM_INCLUDE: "/usr/include/c++/v1"
-      CARLA_LLVM_LIBPATH: "/usr/lib/x86_64-linux-gnu"
-      CARLA_SYSROOT_FLAGS: ""
-      CARLA_VERSION_OVERRIDE: "0.9.15"
-      CC: "clang"
-      CXX: "clang++"
-      CMAKE_BUILD_PARALLEL_LEVEL: "2"
+      CARLA_PYTHON_VERSIONS_JSON: ${{ inputs.python_versions }}
+      CARLA_RECLAIM_APT_SPACE: "1"
       DEBIAN_FRONTEND: noninteractive
-      MAKEFLAGS: "-j2"
-      PYTHON_VERSIONS_JSON: ${{ inputs.python_versions }}
       TZ: UTC
-      UV_CACHE_DIR: ${{ github.workspace }}/.cache/uv
+      UV_CACHE_DIR: ${{ github.workspace }}/build-carla/.work/uv-cache
+      UV_PYTHON_INSTALL_DIR: ${{ github.workspace }}/build-carla/.work/python
 
     steps:
+      - name: Check out build scripts
+        uses: actions/checkout@v4
+
       - name: Show initial disk space
         shell: bash
-        run: |
-          set -euo pipefail
-          df -h
+        run: df -h
 
-      - name: Install build dependencies
+      - name: Install system build dependencies
         shell: bash
-        run: |
-          set -euo pipefail
-
-          apt-get update
-          apt-get install -y --no-install-recommends \
-            autoconf \
-            automake \
-            build-essential \
-            ca-certificates \
-            clang \
-            cmake \
-            curl \
-            file \
-            git \
-            jq \
-            libjpeg-dev \
-            libpng-dev \
-            libtiff-dev \
-            libc++-dev \
-            libc++abi-dev \
-            libtool \
-            libxml2-dev \
-            lld \
-            ninja-build \
-            patchelf \
-            rsync \
-            tzdata \
-            unzip \
-            wget \
-            xz-utils \
-            zlib1g-dev
-
-          rm -rf /var/lib/apt/lists/*
-
-          clang --version
-          cmake --version
-          df -h
-
-      - name: Check out workflow support files
-        uses: actions/checkout@v4
+        run: ./build-carla/install-dependencies-debian.sh
 
       - name: Install uv
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
+          version: "0.11.28"
           enable-cache: false
 
-      - name: Install all CPython runtimes
+      - name: Prepare all CPython runtimes
+        shell: bash
+        run: ./build-carla/prepare-python.sh
+
+      - name: Fetch and patch official CARLA source
+        shell: bash
+        run: ./build-carla/fetch-source.sh
+
+      - name: Build LibCarla client and all raw wheels
+        shell: bash
+        run: ./build-carla/build-wheels.sh
+
+      - name: Repair and import-test manylinux wheels
+        shell: bash
+        run: ./build-carla/repair-wheels.sh
+
+      - name: Write build metadata
+        shell: bash
+        run: ./build-carla/write-metadata.sh
+
+      - name: Reclaim intermediate build space
         shell: bash
         run: |
-          set -euo pipefail
-
-          if ! jq -e '
-            type == "array" and
-            length > 0 and
-            all(.[]; type == "string" and test("^3\\.[0-9]+$"))
-          ' <<< "${PYTHON_VERSIONS_JSON}" > /dev/null; then
-            echo "::error::python_versions must be a non-empty JSON array such as [\"3.9\",\"3.10\"]"
-            exit 1
-          fi
-
-          mapfile -t python_versions < <(
-            jq -r 'unique[]' <<< "${PYTHON_VERSIONS_JSON}" | sort -V
-          )
-          uv python install --managed-python "${python_versions[@]}"
-
-          venv_root="${GITHUB_WORKSPACE}/.python-build-venvs"
-          mkdir -p "${venv_root}"
-
-          python_version_csv="$(IFS=,; echo "${python_versions[*]}")"
-          auditwheel_version="$(printf '%s\n' "${python_versions[@]}" | sort -V | tail -n 1)"
-
-          for version in "${python_versions[@]}"; do
-            managed_python="$(uv python find --managed-python "${version}")"
-            venv_dir="${venv_root}/python-${version}"
-            uv venv --python "${managed_python}" "${venv_dir}"
-            uv pip install \
-              --python "${venv_dir}/bin/python" \
-              --upgrade \
-              distro \
-              setuptools \
-              wheel
-
-            # CARLA invokes exact names such as `python3.9` through env. Add
-            # each venv's bin directory directly so CPython can find the
-            # adjacent pyvenv.cfg and load packages installed in that venv.
-            echo "${venv_dir}/bin" >> "${GITHUB_PATH}"
-            python_executable="${venv_dir}/bin/python${version}"
-            test -x "${python_executable}"
-            include_dir="$("${python_executable}" -c \
-              'import sysconfig; print(sysconfig.get_path("include"))')"
-            test -f "${include_dir}/Python.h"
-            "${python_executable}" -c 'import distro, setuptools, wheel'
-            "${python_executable}" --version
-          done
-
-          auditwheel_python="${venv_root}/python-${auditwheel_version}/bin/python"
-          uv pip install \
-            --python "${auditwheel_python}" \
-            --upgrade \
-            auditwheel
-
-          {
-            echo "CARLA_PYTHON_VERSION_LIST=${python_version_csv}"
-            echo "EXPECTED_WHEEL_COUNT=${#python_versions[@]}"
-            echo "AUDITWHEEL_PYTHON=${auditwheel_python}"
-          } >> "${GITHUB_ENV}"
-
-          uv cache clean
-          df -h
-
-      - name: Fetch official CARLA source
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          # Assets and Unreal content are unnecessary for LibCarla client wheels.
-          export GIT_LFS_SKIP_SMUDGE=1
-
-          git clone \
-            --depth 1 \
-            --branch "${CARLA_VERSION}" \
-            --single-branch \
-            https://github.com/carla-simulator/carla.git \
-            carla
-
-          echo "CARLA_COMMIT=$(git -C carla rev-parse HEAD)" >> "${GITHUB_ENV}"
-          git config --global --add safe.directory "${GITHUB_WORKSPACE}/carla"
-
-      - name: Apply minimal hosted-runner compatibility patch
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          git -C carla apply --check \
-            "${GITHUB_WORKSPACE}/.github/patches/carla-0.9.15-hosted-runner.patch"
-          git -C carla apply \
-            "${GITHUB_WORKSPACE}/.github/patches/carla-0.9.15-hosted-runner.patch"
-
-          test "$(git -C carla describe --tags --always)" = "${CARLA_VERSION}"
-          test -f carla/Util/BuildTools/Setup.sh
-          grep -q 'CARLA_LLVM_INCLUDE' carla/Util/BuildTools/Setup.sh
-          grep -q 'CARLA_LLVM_INCLUDE' carla/Util/BuildTools/BuildOSM2ODR.sh
-          grep -q 'CARLA_VERSION_OVERRIDE' carla/Util/BuildTools/Environment.sh
-          grep -q 'CARLA_PYTHON_VERSION_LIST' carla/Util/BuildTools/Setup.sh
-          grep -q 'CARLA_PYTHON_VERSION_LIST' carla/Util/BuildTools/BuildPythonAPI.sh
-
-          git -C carla diff --stat
-          df -h
-
-      - name: Build LibCarla client and all Python wheels
-        working-directory: carla
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          mapfile -t python_versions < <(
-            jq -r 'unique[]' <<< "${PYTHON_VERSIONS_JSON}" | sort -V
-          )
-          for version in "${python_versions[@]}"; do
-            python_executable="$(command -v "python${version}")"
-            echo "Python ${version}: ${python_executable}"
-            "${python_executable}" -c 'import distro, setuptools, wheel'
-          done
-
-          # Match CARLA's official Jenkins order. With parallel make enabled,
-          # PythonAPI may otherwise start OSM2ODR before setup installs Xerces-C.
-          make setup
-
-          # The compatibility patch lets Setup.sh and BuildPythonAPI.sh read
-          # the same comma-separated Python version list.
-          make PythonAPI
-
-          shopt -s nullglob
-          wheels=(PythonAPI/carla/dist/*.whl)
-          if [[ ${#wheels[@]} -ne ${EXPECTED_WHEEL_COUNT} ]]; then
-            echo "::error::Expected ${EXPECTED_WHEEL_COUNT} raw wheels, found ${#wheels[@]}"
-            exit 1
-          fi
-
-          file "${wheels[@]}"
-          du -sh Build PythonAPI/carla/dependencies PythonAPI/carla/dist
-          df -h
-
-      - name: Repair and validate manylinux wheels
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          output_dir="${GITHUB_WORKSPACE}/dist/wheels"
-          mkdir -p "${output_dir}"
-
-          shopt -s nullglob
-          raw_wheels=(carla/PythonAPI/carla/dist/*.whl)
-          if [[ ${#raw_wheels[@]} -ne ${EXPECTED_WHEEL_COUNT} ]]; then
-            echo "::error::Expected ${EXPECTED_WHEEL_COUNT} raw wheels, found ${#raw_wheels[@]}"
-            exit 1
-          fi
-
-          for raw_wheel in "${raw_wheels[@]}"; do
-            "${AUDITWHEEL_PYTHON}" -m auditwheel show "${raw_wheel}"
-            "${AUDITWHEEL_PYTHON}" -m auditwheel repair \
-              --plat "${WHEEL_PLATFORM}" \
-              --wheel-dir "${output_dir}" \
-              "${raw_wheel}"
-          done
-
-          repaired_wheels=("${output_dir}"/*.whl)
-          if [[ ${#repaired_wheels[@]} -ne ${EXPECTED_WHEEL_COUNT} ]]; then
-            echo "::error::Expected ${EXPECTED_WHEEL_COUNT} repaired wheels, found ${#repaired_wheels[@]}"
-            exit 1
-          fi
-
-          verify_dir="$(mktemp -d)"
-          mapfile -t python_versions < <(
-            jq -r 'unique[]' <<< "${PYTHON_VERSIONS_JSON}" | sort -V
-          )
-
-          for version in "${python_versions[@]}"; do
-            python_tag="cp${version//./}"
-            matching_wheels=("${output_dir}"/*-"${python_tag}"-"${python_tag}"-*.whl)
-            if [[ ${#matching_wheels[@]} -ne 1 ]]; then
-              echo "::error::Expected one ${python_tag} wheel, found ${#matching_wheels[@]}"
-              exit 1
-            fi
-
-            "${AUDITWHEEL_PYTHON}" -m auditwheel show "${matching_wheels[0]}"
-
-            python_executable="$(uv python find --managed-python "${version}")"
-            venv_dir="${verify_dir}/${python_tag}"
-            "${python_executable}" -m venv --without-pip "${venv_dir}"
-            uv pip install \
-              --python "${venv_dir}/bin/python" \
-              --no-deps \
-              "${matching_wheels[0]}"
-            "${venv_dir}/bin/python" - <<'PY'
-          import carla
-
-          client_version = carla.Client("127.0.0.1", 2000).get_client_version()
-          assert client_version == "0.9.15", client_version
-          assert carla.Location(x=1.0, y=2.0, z=3.0).x == 1.0
-          print(f"Imported {carla.__file__}")
-          print(f"CARLA client version: {client_version}")
-          PY
-          done
-
-          rm -rf "${verify_dir}"
-
-      - name: Write build metadata and reclaim disk
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          output_dir="${GITHUB_WORKSPACE}/dist/wheels"
-          patch_sha256="$(sha256sum \
-            .github/patches/carla-0.9.15-hosted-runner.patch | cut -d' ' -f1)"
-          compiler="$(clang --version | head -n 1)"
-
-          cp carla/LICENSE "${output_dir}/LICENSE-CARLA.txt"
-
-          mapfile -t python_versions < <(
-            jq -r 'unique[]' <<< "${PYTHON_VERSIONS_JSON}" | sort -V
-          )
-          for version in "${python_versions[@]}"; do
-            python_tag="cp${version//./}"
-            python_executable="$(uv python find --managed-python "${version}")"
-            resolved_python_version="$("${python_executable}" -c \
-              'import platform; print(platform.python_version())')"
-
-            jq -n \
-              --arg carla_version "${CARLA_VERSION}" \
-              --arg carla_commit "${CARLA_COMMIT}" \
-              --arg patch_sha256 "${patch_sha256}" \
-              --arg python_version "${version}" \
-              --arg resolved_python_version "${resolved_python_version}" \
-              --arg platform "${WHEEL_PLATFORM}" \
-              --arg compiler "${compiler}" \
-              '{
-                carla_version: $carla_version,
-                carla_commit: $carla_commit,
-                buildtools_version: $carla_version,
-                hosted_runner_patch_sha256: $patch_sha256,
-                python_version: $python_version,
-                resolved_python_version: $resolved_python_version,
-                platform: $platform,
-                compiler: $compiler
-              }' > "${output_dir}/build-manifest-${python_tag}.json"
-          done
-
-          (
-            cd "${output_dir}"
-            sha256sum ./*.whl > SHA256SUMS
-          )
-
-          ls -lh "${output_dir}"
-
-          # Only the small release artifacts are needed by subsequent Actions.
-          rm -rf carla
+          ./build-carla/clean.sh --work
           df -h
 
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v4
         with:
-          name: carla-${{ env.CARLA_VERSION }}-python-wheels-${{ env.WHEEL_PLATFORM }}
-          path: dist/wheels/
+          name: carla-${{ env.CARLA_VERSION }}-python-wheels-${{ env.CARLA_WHEEL_PLATFORM }}
+          path: build-carla/dist/wheels/
           if-no-files-found: error
           retention-days: 30
           compression-level: 0
@@ -386,14 +113,12 @@ jobs:
       - name: Download wheels
         uses: actions/download-artifact@v4
         with:
-          name: carla-${{ env.CARLA_VERSION }}-python-wheels-${{ env.WHEEL_PLATFORM }}
+          name: carla-${{ env.CARLA_VERSION }}-python-wheels-${{ env.CARLA_WHEEL_PLATFORM }}
           path: dist
 
       - name: List release files
         shell: bash
-        run: |
-          set -euo pipefail
-          find dist -maxdepth 1 -type f -printf '%f\n' | sort
+        run: find dist -maxdepth 1 -type f -printf '%f\n' | sort
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
@@ -401,15 +126,14 @@ jobs:
           tag_name: ${{ inputs.release_tag }}
           name: CARLA ${{ env.CARLA_VERSION }} Python wheels
           body: |
-            Client-only CARLA ${{ env.CARLA_VERSION }} Python wheels.
+            Client-only CARLA ${{ env.CARLA_VERSION }} wheels built on the
+            glibc 2.31 ABI baseline.
 
-            Built from the official CARLA source using the official
-            `PythonAPI -> LibCarla.client.release + osm2odr -> setup` dependency
-            chain. CARLA 0.9.15's own BuildTools are retained; a small,
-            auditable patch allows the scripts to use the runner's compiler and
-            libc++ instead of requiring the UE4 installation. All requested
-            CPython wheels share one dependency and LibCarla build.
-            Build manifests and SHA-256 checksums are attached.
+            The build uses CARLA's original `setup -> BuildLibCarla client ->
+            BuildOSM2ODR -> BuildPythonAPI` BuildTools chain. GitHub Actions
+            invokes the same auditable scripts available in `build-carla/` for
+            local reproduction. Build manifests and SHA-256 checksums are
+            attached.
           files: |
             dist/*.whl
             dist/build-manifest-*.json
