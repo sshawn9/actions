@@ -1,0 +1,140 @@
+name: globalping-limits-16
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  limits:
+    name: Runner ${{ matrix.runner }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      max-parallel: 16
+      matrix:
+        runner: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: stable
+          cache: false
+
+      - name: Install latest Globalping CLI
+        shell: bash
+        run: |
+          go install github.com/jsdelivr/globalping-cli@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          "$(go env GOPATH)/bin/globalping-cli" version
+
+      - name: Print and collect public IPv4 and Globalping limits
+        if: always()
+        shell: python
+        env:
+          RUNNER_NUMBER: ${{ matrix.runner }}
+        run: |
+          import json
+          import os
+          import re
+          import subprocess
+          from pathlib import Path
+
+          def query(command):
+              try:
+                  result = subprocess.run(
+                      command, capture_output=True, text=True, timeout=60
+                  )
+                  output = result.stdout + result.stderr
+                  output = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output).strip()
+                  return {"exit_code": result.returncode, "output": output}
+              except (OSError, subprocess.TimeoutExpired) as error:
+                  return {"exit_code": 1, "output": str(error)}
+
+          runner = int(os.environ["RUNNER_NUMBER"])
+          ip = query([
+              "curl", "-4", "--fail", "--silent", "--show-error",
+              "--max-time", "30", "https://api.ipify.org",
+          ])
+          print(f"Runner {runner} public IPv4:\n{ip['output']}", flush=True)
+          limits = query(["globalping-cli", "limits", "--ci"])
+          print(f"Runner {runner} Globalping limits (anonymous):\n{limits['output']}", flush=True)
+
+          Path("results").mkdir(exist_ok=True)
+          Path(f"results/runner-{runner}.json").write_text(
+              json.dumps({"runner": runner, "ip": ip, "limits": limits}, indent=2),
+              encoding="utf-8",
+          )
+          if ip["exit_code"] or limits["exit_code"]:
+              raise SystemExit(1)
+
+      - name: Upload runner result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: globalping-runner-${{ matrix.runner }}
+          path: results/runner-${{ matrix.runner }}.json
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
+
+  summary:
+    name: All 16 runners — IP and Globalping limits
+    needs: limits
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Download runner results
+        uses: actions/download-artifact@v8
+        with:
+          pattern: globalping-runner-*
+          path: results
+          merge-multiple: true
+
+      - name: Write combined Actions summary
+        if: always()
+        shell: python
+        run: |
+          import html
+          import json
+          import os
+          from pathlib import Path
+
+          def cell(value):
+              return html.escape(value).replace("|", "&#124;").replace("\n", "<br>")
+
+          lines = [
+              "## Public IPv4 and Globalping limits — 16 runners",
+              "",
+              "Anonymous queries using `globalping-cli limits --ci`.",
+              "",
+              "| Runner | Public IPv4 | Globalping limits | Status |",
+              "| --- | --- | --- | --- |",
+          ]
+          failed = False
+          for runner in range(1, 17):
+              path = Path(f"results/runner-{runner}.json")
+              if not path.exists():
+                  lines.append(f"| {runner} | — | No result uploaded | Missing |")
+                  failed = True
+                  continue
+              result = json.loads(path.read_text(encoding="utf-8"))
+              ip, limits = result["ip"], result["limits"]
+              errors = []
+              if ip["exit_code"]:
+                  errors.append(f"IP failed (exit {ip['exit_code']})")
+              if limits["exit_code"]:
+                  errors.append(f"Limits failed (exit {limits['exit_code']})")
+              status = "; ".join(errors) if errors else "OK"
+              failed = failed or bool(errors)
+              lines.append(
+                  f"| {runner} | {cell(ip['output'])} | {cell(limits['output'])} | {status} |"
+              )
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write("\n".join(lines) + "\n")
+          if failed:
+              raise SystemExit("Some runners failed or did not upload results; see the summary.")
